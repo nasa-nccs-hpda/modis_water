@@ -1,2 +1,2 @@
 Bootstrap: localimage
-FROM: ./cisto-data-science.sif
+FROM: ./core-dev.sif
