@@ -7,7 +7,6 @@ from osgeo import gdal
 from osgeo import gdalconst
 
 from core.model.Chunker import Chunker
-from core.model.ImageFile import ImageFile
 from core.model.SystemCommand import SystemCommand
 
 
@@ -78,11 +77,11 @@ class SimpleClassifier(object):
         # Note, there is no need to shift single-bit fields.  Instead,
         # logically "and" the mask with the entire state field to get a 1 or 0.
         # ---
-        self._AERO_MASK = 0b11000000         # matches 0xC0 from MOD44C.h
-        self._AERO_SHIFT = 6                 # >> 6
-        self._CLOUD_MASK = 3                 # c doesn't shift cloud
-        self._INT_CLOUD_MASK = 0b10000000000 # matches 0x400 from MOD44C.h
-        self._SHADOW_MASK = 0b100            # matches 0x4 from MOD44C.h
+        self._AERO_MASK = 0b11000000          # matches 0xC0 from MOD44C.h
+        self._AERO_SHIFT = 6                  # >> 6
+        self._CLOUD_MASK = 3                  # c doesn't shift cloud
+        self._INT_CLOUD_MASK = 0b10000000000  # matches 0x400 from MOD44C.h
+        self._SHADOW_MASK = 0b100             # matches 0x4 from MOD44C.h
 
         self._SENZ = 'SensorZenith_1'
         self._SOLZ = 'SolarZenith_1'
@@ -239,59 +238,8 @@ class SimpleClassifier(object):
                                              str(julianDay) + '.tif')
 
         driver = gdal.GetDriverByName('GTiff')
-        outDs = driver.Create(outName, xSize, ySize, 1, gdalconst.GDT_UInt16)
+        driver.Create(outName, xSize, ySize, 1, gdalconst.GDT_UInt16)
         return outName
-
-    #     # -------------------------------------------------------------------------
-    #     # detectWater
-    #     # -------------------------------------------------------------------------
-    #     def detectWater(self, sr1, sr2, sr3, sr4, sr5, sr6, sr7, state):
-    #
-    #         waterChange = self._waterChange(sr1, sr2, sr3, sr4, sr5, sr6, sr7)
-    #
-    #         if waterChange == 0:
-    #             return SimpleClassifier.OUT_UNCLASS_VAL
-    #
-    #         if waterChange == 3:
-    #             return SimpleClassifier.OUT_WATER_VAL
-    #
-    #         if waterChange == 1:
-    #
-    #             # ---
-    #             # The original code, sort_values.c, modifies the "internal cloud"
-    #             # bits such that when the "cloud" state field reads "cloudy," with
-    #             # a value of 1, or "mixed," with a value of 2, internal cloud is
-    #             # logically or'd with internal cloud.
-    #             #
-    #             # if ((inputs->state_1km_1[jj_1km][k_1km] & cloud) == 1 ||
-    #             #        (inputs->state_1km_1[jj_1km][k_1km] & cloud) == 2)
-    # #       inputs->state_1km_1[jj_1km][k_1km] |= internal_cloud;
-    #             #
-    #             # Later, it tests internal cloud and cloud shadow.
-    #             # if (water == 1)
-    # # {
-    # #     if ((inputs->state_1km_1[jj_1km][k_1km] & \
-    #             #          internal_cloud) == 0 && \
-    #             #         (inputs->state_1km_1[jj_1km][k_1km] & shadow) == 0)
-    #             #
-    #             #         outputs->land_hits[jj][k]++;
-    #             # }
-    #             # else if (water == 3)
-    #             # {
-    #             #     outputs->water_hits[jj][k]++;
-    #             # }
-    #             # ---
-    #             if state & self._CLOUD_MASK == 1 or state & self._CLOUD_MASK == 2:
-    #
-    #                 state |= self._INT_CLOUD_MASK
-    #
-    #             if state & self._INT_CLOUD_MASK == 0 and \
-    #                state & self._SHADOW_MASK == 0:
-    #
-    #                return SimpleClassifier.OUT_LAND_VAL
-    #
-    #             else:
-    #                 return SimpleClassifier.OUT_WATER_VAL
 
     # -------------------------------------------------------------------------
     # detectWater
@@ -313,7 +261,7 @@ class SimpleClassifier(object):
                state & self._SHADOW_MASK == 0:
 
                 return SimpleClassifier.OUT_LAND_VAL
-                
+
             else:
                 return SimpleClassifier.OUT_BAD_VAL
 

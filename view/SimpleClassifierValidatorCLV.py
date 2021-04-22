@@ -30,7 +30,7 @@ def main():
 
     parser.add_argument('-p',
                         default='landWaterBad-MO-',
-                        help='Prefix of the Simple Classifier images ' + \
+                        help='Prefix of the Simple Classifier images ' + 
                              'for which to search')
 
     parser.add_argument('-w',
@@ -39,17 +39,18 @@ def main():
     args = parser.parse_args()
 
     scv = SimpleClassifierValidator(args.d, args.p)
-    
+
     if args.l:
 
         isValid = scv.runLand(args.l)
         print('Land valid: ', isValid)
-    
+
     if args.w:
 
         isValid = scv.runWater(args.w)
         print('Water valid: ', isValid)
-    
+
+
 # -----------------------------------------------------------------------------
 # Invoke the main
 # -----------------------------------------------------------------------------

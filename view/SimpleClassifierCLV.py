@@ -11,7 +11,7 @@ from modis_water.model.SimpleClassifier import SimpleClassifier
 # main
 #
 # This container does not have HDF4:  cisto-centos-singularity-gdal-3.0.0.sif
-# 
+#
 # UL: 725, 1376
 # LR: 735, 1386
 #
@@ -19,7 +19,7 @@ from modis_water.model.SimpleClassifier import SimpleClassifier
 # gdallocationinfo landWaterBad-MO-161.tif 1431 2049  -->  cloud = 2 cur 3
 # gdallocationinfo landWaterBad-MO-161.tif  659 1372  -->  water = 3 cur 2
 # gdallocationinfo landWaterBad-MO-161.tif  577 1411  -->  water = 3 cur 2
-# 
+#
 # modis_water/view/SimpleClassifierCLV.py -i /att/pubrepo/ILAB/projects/modis_water/h09v05 -o /att/nobackup/rlgill/SystemTesting/modis-water -d 161 -r 4008 4633 1 1
 # -----------------------------------------------------------------------------
 def main():
@@ -57,6 +57,7 @@ def main():
 
     sc = SimpleClassifier(args.i, args.o, args.d, logger)
     sc.run(args.r)
+
 
 # -----------------------------------------------------------------------------
 # Invoke the main
