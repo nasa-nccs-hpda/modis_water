@@ -1,6 +1,7 @@
 
 import glob
 import os
+import re
 import struct
 
 from osgeo import gdal
@@ -12,6 +13,8 @@ from core.model.SystemCommand import SystemCommand
 
 # -----------------------------------------------------------------------------
 # class SimpleClassifier
+#
+# Directory Structure: base directory / sensor / year
 #
 # run
 #    _processOneSensor
@@ -43,7 +46,8 @@ class SimpleClassifier(object):
     # -------------------------------------------------------------------------
     # __init__
     # -------------------------------------------------------------------------
-    def __init__(self, tileDir, outDir, julianDay=None, logger=None):
+    def __init__(self, moDir, year, outDir, tile='', julianDay=None,
+                 logger=None):
 
         if not os.path.exists(outDir):
             raise RuntimeError('Output dir., ' + outDir + ', does not exist.')
@@ -54,18 +58,34 @@ class SimpleClassifier(object):
                                outDir +
                                ', must be a directory.')
 
-        if not os.path.exists(tileDir):
-            raise RuntimeError('Tile dir., ' + tileDir + ', does not exist.')
+        if not os.path.exists(moDir):
+            raise RuntimeError('MO dir., ' + moDir + ', does not exist.')
 
+        if tile:
+
+            rex = re.compile('^[h][0-9]{2}[v][0-9]{2}')
+
+            if not rex.match(tile):
+
+                msg = 'The tile must be specified as h##v##.  It was ' + \
+                      'specified as ' + str(tile)
+
+                raise RuntimeError(msg)
+
+        if year < 1999:
+            raise RuntimeError('Invalid year: ' + str(year))
+
+        self._year = year
+        self._tile = tile
         self._julianDay = julianDay
         self._logger = logger
         self._outDir = outDir
-        self._tileDir = tileDir
+        self._moDir = moDir
 
         # Discover which years' files are in the tile directory.
-        oneFile = glob.glob(os.path.join(self._tileDir, 'MO', '*.hdf'))[0]
-        dateSegment = os.path.basename(oneFile).split('.')[1]
-        self._year = dateSegment[1:5]
+        # oneFile = glob.glob(os.path.join(self._tileDir, 'MO', '*.hdf'))[0]
+        # dateSegment = os.path.basename(oneFile).split('.')[1]
+        # self._year = dateSegment[1:5]
 
         # ---
         # Aerosol:
@@ -367,8 +387,16 @@ class SimpleClassifier(object):
 
         # This is a dictionary mapping the band name to its file.
         files = {}
-        pattern = '*GA*A' + self._year + str(julianDay).zfill(3) + '*.hdf'
-        gaDays = glob.glob(os.path.join(sensorDir, pattern))
+
+        pattern = '*GA.A' + \
+                  str(self._year) + \
+                  str(julianDay).zfill(3) + \
+                  '.' + \
+                  self._tile + \
+                  '*.hdf'
+
+        globDir = os.path.join(sensorDir, str(self._year))
+        gaDays = glob.glob(os.path.join(globDir, pattern))
 
         for gaFile in gaDays:
 
@@ -458,8 +486,5 @@ class SimpleClassifier(object):
     # -------------------------------------------------------------------------
     def run(self, rectangleToProcess):
 
-        sensorDir = os.path.join(self._tileDir, 'MO')
-        self._processOneSensor(sensorDir, rectangleToProcess)
-
-        # sensorDir = os.path.join(tileDir, 'MY')
-        # SimpleClassifier._processOneSensor(sensorDir, outDir)
+        if self._moDir:
+            self._processOneSensor(self._moDir, rectangleToProcess)
