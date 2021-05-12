@@ -3,6 +3,7 @@ import glob
 import os
 import re
 import struct
+import warnings
 
 from osgeo import gdal
 from osgeo import gdalconst
@@ -21,6 +22,7 @@ from core.model.SystemCommand import SystemCommand
 #       _readFiles
 #           _readBands
 #              readFile
+#       createOutputImageName
 #       createOutputImage
 #       classify
 #           getChunker
@@ -42,6 +44,8 @@ class SimpleClassifier(object):
     OUT_LAND_VAL = 1
     OUT_UNCLASS_VAL = 2
     OUT_WATER_VAL = 3
+    
+    OUT_IMAGE_PREFIX = 'landWaterBad-'
 
     # -------------------------------------------------------------------------
     # __init__
@@ -247,19 +251,27 @@ class SimpleClassifier(object):
                         WriteRaster(outX, outY, 1, 1, struct.pack('I', outVal))
 
     # -------------------------------------------------------------------------
+    # createOutputImageName
+    # -------------------------------------------------------------------------
+    def createOutputImageName(self, suffix, julianDay):
+
+        outName = os.path.join(self._outDir, 
+                               SimpleClassifier.OUT_IMAGE_PREFIX + 
+                               suffix + 
+                               '-' +
+                               str(julianDay).zfill(3) + '.tif')
+        return outName
+
+    # -------------------------------------------------------------------------
     # createOutputImage
     # -------------------------------------------------------------------------
-    def createOutputImage(self, suffix, julianDay, rect):
+    def createOutputImage(self, name, rect):
 
         xSize = int(rect[0]) + int(rect[2]) if rect else 4800
         ySize = int(rect[1]) + int(rect[3]) if rect else 4800
 
-        outName = os.path.join(self._outDir, 'landWaterBad-' + suffix + '-' +
-                                             str(julianDay) + '.tif')
-
         driver = gdal.GetDriverByName('GTiff')
-        driver.Create(outName, xSize, ySize, 1, gdalconst.GDT_UInt16)
-        return outName
+        driver.Create(name, xSize, ySize, 1, gdalconst.GDT_UInt16)
 
     # -------------------------------------------------------------------------
     # detectWater
@@ -290,9 +302,8 @@ class SimpleClassifier(object):
             return SimpleClassifier.OUT_WATER_VAL
 
         else:
-            raise RuntimeError('There was a water change condition ' +
-                               'for which there is no assigned output ' +
-                               'value.')
+            warnings.warn('There was a water change condition for which ' +
+                          'there is no assigned output value.')
 
     # -------------------------------------------------------------------------
     # waterChange
@@ -363,22 +374,39 @@ class SimpleClassifier(object):
         # bookkeeping, explicitly loop over days.  If no files exist for a
         # day, print a message and continue.  MODIS uses julian days.
         # ---
-        julianDays = [self._julianDay] if self._julianDay else range(365)
+        julianDays = [self._julianDay] if self._julianDay else range(1, 366)
 
         for julianDay in julianDays:
 
-            files = self._readFiles(sensorDir, julianDay)
+            try:
+                files = self._readFiles(sensorDir, julianDay)
 
-            if files:
+                if files:
 
-                sensor = os.path.basename(sensorDir)
-                outName = self.createOutputImage(sensor, julianDay, rectangle)
-                self.classify(files, outName, rectangle)
+                    sensor = os.path.basename(sensorDir)
+                    
+                    outName =  self.createOutputImageName(sensor, julianDay)
+                    
+                    if not os.path.exists(outName):
+                        
+                        self.createOutputImage(outName, rectangle)
+                        self.classify(files, outName, rectangle)
 
-            elif self._logger:
+                    elif self._logger:
+                        
+                        self._logger.info('Skipping ' + 
+                                          outName +
+                                          ' because it already exists.')
+                                          
+                elif self._logger:
 
-                self._logger.info('There are no files for day ' +
-                                  str(julianDay) + '.')
+                    self._logger.info('There are no files for day ' +
+                                      str(julianDay) + '.')
+
+            except Exception as e:
+
+                if self._logger:
+                    self._logger.info(e)
 
     # -------------------------------------------------------------------------
     # _readFiles
@@ -470,7 +498,6 @@ class SimpleClassifier(object):
         # Only bother reading, if the file does not exist.
         if not os.path.exists(outName):
 
-            # 'HDF4_EOS:EOS_GRID:"' +
             cmd = 'gdal_translate -tr 231.656358 231.656358 ' + \
                   'HDF4_EOS:EOS_GRID:"' + \
                   dayFile + '"' + \
