@@ -46,7 +46,7 @@ class MaskGenerator(object):
     def generateMask(self, debug=False):
 
         # Apply the rules.
-        mask = np.where( \
+        mask = np.where(
             (self._bandDict[br.SR1] < -100) |
             (self._bandDict[br.SR1] > 16000) |
             (self._bandDict[br.SR2] < -100) |
@@ -64,19 +64,19 @@ class MaskGenerator(object):
             (self._bandDict[br.SENZ] > 4500) |
             (self._bandDict[br.SOLZ] > 6500) |
 
-            (self._bandDict[br.STATE] & MaskGenerator.AERO_MASK == \
+            (self._bandDict[br.STATE] & MaskGenerator.AERO_MASK ==
                 MaskGenerator.AERO_MASK) |
 
-            (self._bandDict[br.STATE] & MaskGenerator.CLOUDY == \
+            (self._bandDict[br.STATE] & MaskGenerator.CLOUDY ==
                 MaskGenerator.CLOUDY) |
 
-            (self._bandDict[br.STATE] & MaskGenerator.CLOUD_MIXED == \
+            (self._bandDict[br.STATE] & MaskGenerator.CLOUD_MIXED ==
                 MaskGenerator.CLOUD_MIXED) |
 
-            (self._bandDict[br.STATE] & MaskGenerator.CLOUD_SHADOW == \
+            (self._bandDict[br.STATE] & MaskGenerator.CLOUD_SHADOW ==
                 MaskGenerator.CLOUD_SHADOW) |
 
-            (self._bandDict[br.STATE] & MaskGenerator.CLOUD_INT == \
+            (self._bandDict[br.STATE] & MaskGenerator.CLOUD_INT ==
                 MaskGenerator.CLOUD_INT),
 
             MaskGenerator.BAD_DATA,

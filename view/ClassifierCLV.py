@@ -93,7 +93,7 @@ def main():
                                       args.t,
                                       args.o,
                                       startDay=args.startDay,
-                                      endDay=argsendDay,
+                                      endDay=args.endDay,
                                       logger=logger,
                                       sensors=set([br.MOD]),
                                       debug=args.debug)

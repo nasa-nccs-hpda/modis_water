@@ -161,15 +161,15 @@ class BandReader(object):
         # now.
         # ---
         FULL_BAND_NAMES = {
-            BandReader.SENZ : ':MODIS_Grid_1km_2D:SensorZenith_1',
-            BandReader.SOLZ : ':MODIS_Grid_1km_2D:SolarZenith_1',
-            BandReader.SR1 : ':MODIS_Grid_2D:sur_refl_b01_1',
-            BandReader.SR2 : ':MODIS_Grid_2D:sur_refl_b02_1',
-            BandReader.SR3 : ':MODIS_Grid_500m_2D:sur_refl_b03_1',
-            BandReader.SR4 : ':MODIS_Grid_500m_2D:sur_refl_b04_1',
-            BandReader.SR5 : ':MODIS_Grid_500m_2D:sur_refl_b05_1',
-            BandReader.SR6 : ':MODIS_Grid_500m_2D:sur_refl_b06_1',
-            BandReader.SR7 : ':MODIS_Grid_500m_2D:sur_refl_b07_1',
+            BandReader.SENZ: ':MODIS_Grid_1km_2D:SensorZenith_1',
+            BandReader.SOLZ: ':MODIS_Grid_1km_2D:SolarZenith_1',
+            BandReader.SR1: ':MODIS_Grid_2D:sur_refl_b01_1',
+            BandReader.SR2: ':MODIS_Grid_2D:sur_refl_b02_1',
+            BandReader.SR3: ':MODIS_Grid_500m_2D:sur_refl_b03_1',
+            BandReader.SR4: ':MODIS_Grid_500m_2D:sur_refl_b04_1',
+            BandReader.SR5: ':MODIS_Grid_500m_2D:sur_refl_b05_1',
+            BandReader.SR6: ':MODIS_Grid_500m_2D:sur_refl_b06_1',
+            BandReader.SR7: ':MODIS_Grid_500m_2D:sur_refl_b07_1',
             BandReader.STATE: ':MODIS_Grid_1km_2D:state_1km_1'
         }
 
@@ -202,7 +202,7 @@ class BandReader(object):
     # -------------------------------------------------------------------------
     def _validate(self, sensor, year, tile, day):
 
-        if not sensor in BandReader.SENSORS:
+        if sensor not in BandReader.SENSORS:
             raise RuntimeError('Invalid sensor, ' + sensor)
 
         # Validate tile.
