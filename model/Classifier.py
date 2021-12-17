@@ -269,7 +269,7 @@ class Classifier(object):
                         if len(bandDict) > 0:
 
                             self._maskClassifyWrite(bandDict, outName)
-
+                                
                         elif self._logger:
 
                             self._logger.info('No matching HDFs found.')
@@ -284,9 +284,17 @@ class Classifier(object):
                 except Exception as e:
 
                     if self._logger:
-                        self._logger.info(None, exc_info=True)
 
-                    raise e
+                        self._logger.info(None, exc_info=True)
+                        
+                        msg = 'Sensor ' + str(sensor) + \
+                              ', day ' + str(day) + \
+                              ' skipped due to a run-time error.'
+                              
+                        self._logger.info(msg)
+
+                    # raise e
+                    continue
 
     # -------------------------------------------------------------------------
     # _runOneSensorOneDay
