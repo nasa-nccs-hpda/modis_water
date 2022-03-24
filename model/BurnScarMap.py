@@ -23,31 +23,32 @@ class BurnScarMap(object):
                                   classifierName,
                                   outDir,
                                   logger):
-        subdirhdfs = BurnScarMap.getAllFiles(path=mcdDir, year=year, tile=tile)
-        burnScarMapList = [BurnScarMap.getMatFromHDF(
+        subdirhdfs = BurnScarMap._getAllFiles(
+            path=mcdDir, year=year, tile=tile)
+        burnScarMapList = [BurnScarMap._getMatFromHDF(
             subdir, 'Burn Date', 'Uncertainty') for subdir in subdirhdfs]
-        outputAnnualMask = BurnScarMap.logicalOrMask(burnScarMapList)
-        outpath = BurnScarMap.setupBurnScarOutputPath(
+        outputAnnualMask = BurnScarMap._logicalOrMask(burnScarMapList)
+        outpath = BurnScarMap._setupBurnScarOutputPath(
             year=year,
             tile=tile,
             classifierName=classifierName,
             outputPath=outDir)
-        geo, proj, ncols, nrows = BurnScarMap.getBurnScarRasterInfo(
+        geo, proj, ncols, nrows = BurnScarMap._getBurnScarRasterInfo(
             subdirhdfs[0])
-        BurnScarMap.outputBurnScarRaster(outPath=outpath,
-                                         outmat=outputAnnualMask,
-                                         geo=geo,
-                                         proj=proj,
-                                         ncols=ncols,
-                                         nrows=nrows,
-                                         logger=logger)
+        BurnScarMap._outputBurnScarRaster(outPath=outpath,
+                                          outmat=outputAnnualMask,
+                                          geo=geo,
+                                          proj=proj,
+                                          ncols=ncols,
+                                          nrows=nrows,
+                                          logger=logger)
         return outpath
 
     # -------------------------------------------------------------------------
     # getMatFromHDF
     # -------------------------------------------------------------------------
     @staticmethod
-    def getMatFromHDF(hdf, substr, excludeStr):
+    def _getMatFromHDF(hdf, substr, excludeStr):
         hdf = gdal.Open(hdf)
         subd = [sd for sd, _ in hdf.GetSubDatasets() if
                 substr in sd and excludeStr not in sd][0]
@@ -62,7 +63,7 @@ class BurnScarMap(object):
     # getAllFiles
     # -------------------------------------------------------------------------
     @staticmethod
-    def getAllFiles(path, year, tile):
+    def _getAllFiles(path, year, tile):
         pathToPrepend = os.path.join(path, str(year))
         try:
             subdirs = sorted(os.listdir(pathToPrepend))
@@ -85,7 +86,7 @@ class BurnScarMap(object):
     # locicalOrMask
     # -------------------------------------------------------------------------
     @staticmethod
-    def logicalOrMask(matList):
+    def _logicalOrMask(matList):
         outputMat = np.empty(matList[0].shape)
         for mat in matList:
             outputMat = outputMat + mat
@@ -97,7 +98,7 @@ class BurnScarMap(object):
     # setupBurnScarOutputPath
     # -------------------------------------------------------------------------
     @staticmethod
-    def setupBurnScarOutputPath(year, tile, classifierName, outputPath):
+    def _setupBurnScarOutputPath(year, tile, classifierName, outputPath):
         fileName = 'MOD.A{}.{}.{}.AnnualBurnScar.{}.tif'.format(
             year, tile, classifierName, Utils.getPostStr())
         outPath = os.path.join(outputPath, fileName)
@@ -107,7 +108,7 @@ class BurnScarMap(object):
     # getBurnScarRasterInfo
     # -------------------------------------------------------------------------
     @staticmethod
-    def getBurnScarRasterInfo(file):
+    def _getBurnScarRasterInfo(file):
         ds = gdal.Open(file, gdal.GA_ReadOnly)
         subd = [sd for sd, _ in ds.GetSubDatasets() if
                 'Burn Date' in sd and 'Uncertainty' not in sd][0]
@@ -123,7 +124,8 @@ class BurnScarMap(object):
     # outputBurnScarRaster
     # -------------------------------------------------------------------------
     @staticmethod
-    def outputBurnScarRaster(outPath, outmat, geo, proj, ncols, nrows, logger):
+    def _outputBurnScarRaster(outPath, outmat, geo, proj, ncols, nrows,
+                              logger):
         # Output predicted binary raster masked with good-bad mask.
         driver = gdal.GetDriverByName('GTiff')
         outDs = driver.Create(outPath, ncols, nrows, 1,

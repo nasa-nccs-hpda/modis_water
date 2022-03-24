@@ -4,6 +4,7 @@ from osgeo import gdal
 from skimage.segmentation import find_boundaries
 import numpy as np
 
+from core.model.GeospatialImageFile import GeospatialImageFile
 from modis_water.model.BandReader import BandReader
 from modis_water.model.Utils import Utils
 
@@ -29,14 +30,15 @@ class SevenClassMap(object):
                            logger):
 
         # Search and read in annual product and static seven-class.
-        staticSevenPath = SevenClassMap.getStaticSevenClassPath(
+        staticSevenPath = SevenClassMap._getStaticSevenClassPath(
             staticSevenClassDir, tile)
-        staticSevenDataDict = SevenClassMap.readRaster(staticSevenPath)
-        staticSevenArray = staticSevenDataDict['array']
+        staticSevenDataset = GeospatialImageFile(staticSevenPath)._getDataset()
+        staticSevenArray = staticSevenDataset.GetRasterBand(1).ReadAsArray()
 
-        annualProductDataDict = SevenClassMap.readRaster(annualProductPath)
-
-        annualProductArray = annualProductDataDict['array']
+        annualProductDataset = GeospatialImageFile(
+            annualProductPath)._getDataset()
+        annualProductArray = annualProductDataset.GetRasterBand(
+            1).ReadAsArray()
 
         outputSevenClassArray = np.zeros((BandReader.COLS, BandReader.ROWS))
 
@@ -79,7 +81,7 @@ class SevenClassMap(object):
         outputSevenClassArray = np.where(restArray == 1, 3,
                                          outputSevenClassArray)
 
-        shoreLine = SevenClassMap.generateShoreline(outputSevenClassArray)
+        shoreLine = SevenClassMap._generateShoreline(outputSevenClassArray)
 
         outputSevenClassArray = np.where(shoreLine == 1, 2,
                                          outputSevenClassArray)
@@ -92,19 +94,20 @@ class SevenClassMap(object):
             Utils.getPostStr())
 
         imageName = \
-            SevenClassMap.writeSevenClass(outDir,
-                                          outputSevenClassName,
-                                          outputSevenClassArray,
-                                          staticSevenDataDict['transform'],
-                                          staticSevenDataDict['projection'],
-                                          logger=logger)
+            SevenClassMap._writeSevenClass(
+                outDir,
+                outputSevenClassName,
+                outputSevenClassArray,
+                staticSevenDataset.GetGeoTransform(),
+                staticSevenDataset.GetProjection(),
+                logger=logger)
         return imageName
 
     # -------------------------------------------------------------------------
     # getStaticSevenClassPath
     # -------------------------------------------------------------------------
     @staticmethod
-    def getStaticSevenClassPath(staticSevenClassDir, tile):
+    def _getStaticSevenClassPath(staticSevenClassDir, tile):
         staticSevenClassFileName = '{}{}.tif'.format(
             SevenClassMap.TIF_BASE_NAME, tile)
         staticSevenClassPath = os.path.join(
@@ -117,38 +120,15 @@ class SevenClassMap(object):
             raise FileNotFoundError(msg)
 
     # -------------------------------------------------------------------------
-    # readRaster
-    # -------------------------------------------------------------------------
-    @staticmethod
-    def readRaster(rasterPath):
-        rasterDataDict = {}
-        try:
-            rasterDataset = gdal.Open(rasterPath)
-            rasterDataDict['transform'] = \
-                rasterDataset.GetGeoTransform()
-            rasterDataDict['projection'] = \
-                rasterDataset.GetProjection()
-            rasterDataDict['array'] = \
-                rasterDataset.GetRasterBand(1).ReadAsArray()\
-                .astype(SevenClassMap.DTYPE)
-            del rasterDataset
-            return rasterDataDict
-        except Exception as e:
-            msg = 'RuntimeError encountered while attempting to open: ' + \
-                '{} '.format(rasterPath) + \
-                '{}'.format(e)
-            raise RuntimeError(msg)
-
-    # -------------------------------------------------------------------------
     # generateShoreline
     # -------------------------------------------------------------------------
     @staticmethod
-    def generateShoreline(sevenClass):
+    def _generateShoreline(sevenClass):
         inland = (sevenClass == 3)
         inland = np.where(inland, 1, 0)
-        shorelineInland = SevenClassMap.shoreline(inland)
+        shorelineInland = SevenClassMap._shoreline(inland)
         shallow = np.where(sevenClass == 0, 1, 0)
-        shorelineShallow = SevenClassMap.shoreline(shallow)
+        shorelineShallow = SevenClassMap._shoreline(shallow)
         shoreLine = np.logical_or(shorelineInland, shorelineShallow)
         shoreLine = np.where(shoreLine, 1, 0)
         shoreLine = np.where((shoreLine == 1) & (sevenClass == 1), 1, 0)
@@ -158,7 +138,7 @@ class SevenClassMap(object):
     # shoreline
     # -------------------------------------------------------------------------
     @staticmethod
-    def shoreline(arr_in):
+    def _shoreline(arr_in):
         arr = np.where(arr_in > 100, 1, arr_in)
         arr = np.where(arr != 1, 0, arr)
         bnd = find_boundaries(arr,
@@ -171,8 +151,8 @@ class SevenClassMap(object):
     # writeSevenClass
     # -------------------------------------------------------------------------
     @staticmethod
-    def writeSevenClass(outDir, outName, sevenClassArray, transform,
-                        projection, logger):
+    def _writeSevenClass(outDir, outName, sevenClassArray, transform,
+                         projection, logger):
         cols = sevenClassArray.shape[0]
         rows = sevenClassArray.shape[1] if len(
             sevenClassArray.shape) > 1 else 1

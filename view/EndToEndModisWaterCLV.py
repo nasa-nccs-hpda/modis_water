@@ -6,15 +6,17 @@ import sys
 
 from modis_water.model.AnnualMap import AnnualMap
 from modis_water.model.BandReader import BandReader as br
-from modis_water.model.SevenClass import SevenClassMap
 from modis_water.model.BurnScarMap import BurnScarMap
 from modis_water.model.QAMap import QAMap
 from modis_water.model.RandomForestClassifier import RandomForestClassifier
+from modis_water.model.SevenClass import SevenClassMap
 from modis_water.model.SimpleClassifier import SimpleClassifier
 
 
 # -----------------------------------------------------------------------------
 # main
+#
+# python modis_water/view/EndToEndModisWaterCLV.py -y 2020 -t h09v05 --classifier rf --startDay 1 --endDay 365 -static /adapt/nobackup/projects/ilab/scratch/mcarrol2/MODIS_water_eval/MODIS_tiles/restore_nodata -dem /adapt/nobackup/projects/ilab/scratch/cssprad1/MODIS_water/data/GMTED/MODIS_tiles -burn /css/modis/Collection6/L3/MCD64A1-BurnArea -o .
 # -----------------------------------------------------------------------------
 def main():
 
@@ -121,7 +123,7 @@ def main():
                                             debug=args.debug)
 
     classifier.run()
-    
+
     # ---
     # Create the annual map.
     # ---
