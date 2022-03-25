@@ -111,6 +111,10 @@ class AnnualMap(object):
         AnnualMap.writeTotal(mask, year, tile, sensor, classifierName,
                              'Mask', dailyDir)
 
+        name = Utils.getImageName(
+            year, tile, sensor, classifierName, None, 'Mask')
+        return os.path.join(dailyDir, name + '.tif')
+
     # -------------------------------------------------------------------------
     # writeTotal
     # -------------------------------------------------------------------------
