@@ -1,4 +1,4 @@
-import datetime
+
 import os
 
 from osgeo import gdal
@@ -21,8 +21,8 @@ class Utils(object):
             name += str(day).zfill(3) + '-'
 
         name += str(tile) + '-' + \
-            str(sensor) + '-' + \
-            str(classifier)
+                str(sensor) + '-' + \
+                str(classifier)
 
         if postFix:
             name += '-' + str(postFix)
@@ -44,16 +44,3 @@ class Utils(object):
                            options=['COMPRESS=LZW'])
 
         ds.WriteRaster(0, 0, cols, rows, pixels.tobytes())
-
-    # -------------------------------------------------------------------------
-    # _getPostStr()
-    # -------------------------------------------------------------------------
-    @staticmethod
-    def getPostStr():
-        sdtdate = datetime.datetime.now()
-        year = sdtdate.year
-        hm = sdtdate.strftime('%H%M')
-        sdtdate = sdtdate.timetuple()
-        jdate = sdtdate.tm_yday
-        post_str = '{}{:03}{}'.format(year, jdate, hm)
-        return post_str

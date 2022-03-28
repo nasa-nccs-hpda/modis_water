@@ -6,24 +6,27 @@ import sys
 
 from modis_water.model.AnnualMap import AnnualMap
 from modis_water.model.BandReader import BandReader as br
-from modis_water.model.BurnScarMap import BurnScarMap
-from modis_water.model.QAMap import QAMap
 from modis_water.model.RandomForestClassifier import RandomForestClassifier
-from modis_water.model.SevenClass import SevenClassMap
 from modis_water.model.SimpleClassifier import SimpleClassifier
 
 
 # -----------------------------------------------------------------------------
 # main
 #
-# python modis_water/view/EndToEndModisWaterCLV.py -y 2020 -t h09v05 --classifier rf --startDay 1 --endDay 365 -static /adapt/nobackup/projects/ilab/scratch/mcarrol2/MODIS_water_eval/MODIS_tiles/restore_nodata -dem /adapt/nobackup/projects/ilab/scratch/cssprad1/MODIS_water/data/GMTED/MODIS_tiles -burn /css/modis/Collection6/L3/MCD64A1-BurnArea -o .
+# modis_water/view/ClassifierCLV.py -y 2020 -t h09v05 -o /att/nobackup/rlgill/SystemTesting/modis-water4 --classifier rf --startDay 1 --endDay 1 --debug
 # -----------------------------------------------------------------------------
 def main():
 
     # Process command-line args.
-    desc = 'Use this application to run and post-process annual MODIS water.'
+    desc = 'Use this application to classify MODIS into water, land, bad' + \
+           ' or no-data pixels.'
 
     parser = argparse.ArgumentParser(description=desc)
+
+    parser.add_argument('-a',
+                        default=False,
+                        action='store_true',
+                        help='create the annual map')
 
     parser.add_argument('--classifier',
                         required=True,
@@ -34,6 +37,10 @@ def main():
     parser.add_argument('--debug',
                         action='store_true',
                         help='show extra output and write intermediate files')
+
+    parser.add_argument('-o',
+                        default='.',
+                        help='Path to output directory')
 
     parser.add_argument('--startDay',
                         type=int,
@@ -49,18 +56,6 @@ def main():
                         metavar='1-365',
                         help='the latest julian day to classify')
 
-    parser.add_argument('-static',
-                        required=True,
-                        help='Path to static MODIS 250m 7-class product')
-
-    parser.add_argument('-dem',
-                        required=True,
-                        help='Path to GMTED DEM')
-
-    parser.add_argument('-burn',
-                        required=True,
-                        help='Path to MCD burn scar product')
-
     parser.add_argument('-t',
                         required=True,
                         help='Tile to process; format h##v##')
@@ -70,22 +65,11 @@ def main():
                         type=int,
                         help='Year to process')
 
-    parser.add_argument('-o',
-                        default='.',
-                        help='Output directory')
-
     args = parser.parse_args()
 
-    # Classifier name
-    classifierName = None
-
-    if args.classifier == 'simple':
-        classifierName = SimpleClassifier.CLASSIFIER_NAME
-
-    if args.classifier == 'rf':
-        classifierName = RandomForestClassifier.CLASSIFIER_NAME
-
-    # Logging
+    # ---
+    # Configure logging.
+    # ---
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
     ch = logging.StreamHandler(sys.stdout)
@@ -98,6 +82,9 @@ def main():
     if args.startDay > args.endDay:
         raise ValueError('The start day must be before the end day.')
 
+    # ---
+    # Run the classifier.
+    # ---
     classifier = None
 
     if args.classifier == 'simple':
@@ -127,44 +114,16 @@ def main():
     # ---
     # Create the annual map.
     # ---
-    logger.info('Creating annual map.')
-    annualMapPath = AnnualMap.createAnnualMap(args.o,
-                                              args.y,
-                                              args.t,
-                                              br.MOD,
-                                              classifier.getClassifierName(),
-                                              logger)
+    if args.a:
 
-    # ---
-    # Post processing
-    # ---
-    logger.info('Creating annual burn scar map.')
-    postAnnualBurnScarPath = BurnScarMap.generateAnnualBurnScarMap(
-        args.y,
-        args.t,
-        args.burn,
-        classifier.getClassifierName(),
-        args.o,
-        logger
-    )
+        logger.info('Creating annual map.')
 
-    logger.info('Post processing.')
-    postAnnualPath = QAMap.generateQA(args.y,
-                                      args.t,
-                                      args.dem,
-                                      postAnnualBurnScarPath,
-                                      annualMapPath,
-                                      classifier.getClassifierName(),
-                                      args.o,
-                                      logger)
-
-    SevenClassMap.generateSevenClass(args.y,
-                                     args.t,
-                                     args.static,
-                                     postAnnualPath,
-                                     classifierName,
-                                     args.o,
-                                     logger)
+        AnnualMap.createAnnualMap(args.o,
+                                  args.y,
+                                  args.t,
+                                  br.MOD,
+                                  classifier.getClassifierName(),
+                                  logger)
 
 
 # -----------------------------------------------------------------------------
