@@ -4,7 +4,6 @@ from osgeo import gdal
 from skimage.segmentation import find_boundaries
 import numpy as np
 
-from core.model.GeospatialImageFile import GeospatialImageFile
 from modis_water.model.BandReader import BandReader
 from modis_water.model.Utils import Utils
 
@@ -32,11 +31,10 @@ class SevenClassMap(object):
         # Search and read in annual product and static seven-class.
         staticSevenPath = SevenClassMap._getStaticSevenClassPath(
             staticSevenClassDir, tile)
-        staticSevenDataset = GeospatialImageFile(staticSevenPath)._getDataset()
+        staticSevenDataset = gdal.Open(staticSevenPath)
         staticSevenArray = staticSevenDataset.GetRasterBand(1).ReadAsArray()
 
-        annualProductDataset = GeospatialImageFile(
-            annualProductPath)._getDataset()
+        annualProductDataset = gdal.Open(annualProductPath)
         annualProductArray = annualProductDataset.GetRasterBand(
             1).ReadAsArray()
 
@@ -98,8 +96,6 @@ class SevenClassMap(object):
                 outDir,
                 outputSevenClassName,
                 outputSevenClassArray,
-                staticSevenDataset.GetGeoTransform(),
-                staticSevenDataset.GetProjection(),
                 logger=logger)
         return imageName
 
@@ -151,8 +147,7 @@ class SevenClassMap(object):
     # writeSevenClass
     # -------------------------------------------------------------------------
     @staticmethod
-    def _writeSevenClass(outDir, outName, sevenClassArray, transform,
-                         projection, logger):
+    def _writeSevenClass(outDir, outName, sevenClassArray, logger):
         cols = sevenClassArray.shape[0]
         rows = sevenClassArray.shape[1] if len(
             sevenClassArray.shape) > 1 else 1
@@ -160,8 +155,6 @@ class SevenClassMap(object):
         driver = gdal.GetDriverByName('GTiff')
         ds = driver.Create(imageName, cols, rows, 1, gdal.GDT_Byte,
                            options=['COMPRESS=LZW'])
-        ds.SetGeoTransform(transform)
-        ds.SetProjection(projection)
         band = ds.GetRasterBand(1)
         band.WriteArray(sevenClassArray)
         ds.FlushCache()

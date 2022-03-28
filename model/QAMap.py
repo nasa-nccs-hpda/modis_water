@@ -4,7 +4,6 @@ import os
 from osgeo import gdal
 import numpy as np
 
-from core.model.GeospatialImageFile import GeospatialImageFile
 from modis_water.model.Utils import Utils
 
 
@@ -34,10 +33,8 @@ class QAMap(object):
         demSlopeDatasetPath = QAMap._getStaticDatasetPath(
             demDir, demSearchTerm)
 
-        annualProductDataset = GeospatialImageFile(
-            annualProductPath)._getDataset()
-        demSlopeDataset = GeospatialImageFile(
-            demSlopeDatasetPath)._getDataset()
+        annualProductDataset = gdal.Open(annualProductPath)
+        demSlopeDataset = gdal.Open(demSlopeDatasetPath)
 
         annualProductArray = annualProductDataset.GetRasterBand(
             1).ReadAsArray()
@@ -69,15 +66,11 @@ class QAMap(object):
             outDir,
             annualProductOutputName,
             annualProductOutput,
-            annualProductDataset.GetGeoTransform(),
-            annualProductDataset.GetProjection(),
             logger=logger)
 
         QAMap._writeProduct(outDir,
                             qaOutputName,
                             qaOutput,
-                            annualProductDataset.GetGeoTransform(),
-                            annualProductDataset.GetProjection(),
                             logger=logger)
 
         return annualPath
@@ -114,8 +107,7 @@ class QAMap(object):
     # writeProduct
     # -------------------------------------------------------------------------
     @staticmethod
-    def _writeProduct(outDir, outName, array, transform,
-                      projection, logger):
+    def _writeProduct(outDir, outName, array, logger):
         cols = array.shape[0]
         rows = array.shape[1] if len(
             array.shape) > 1 else 1
@@ -123,8 +115,6 @@ class QAMap(object):
         driver = gdal.GetDriverByName('GTiff')
         ds = driver.Create(imageName, cols, rows, 1, gdal.GDT_Byte,
                            options=['COMPRESS=LZW'])
-        ds.SetGeoTransform(transform)
-        ds.SetProjection(projection)
         band = ds.GetRasterBand(1)
         band.WriteArray(array)
         ds.FlushCache()
