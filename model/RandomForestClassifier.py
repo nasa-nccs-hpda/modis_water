@@ -33,6 +33,11 @@ class RandomForestClassifier(Classifier):
                       BandReader.SR4, BandReader.SR5, BandReader.SR6,
                       BandReader.SR7])
 
+        # Read the model before we do any real work.
+        modelFile = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 'RandomForestModel.sav')
+        self._model = joblib.load(modelFile)
+
     # -------------------------------------------------------------------------
     # getClassifierName
     # -------------------------------------------------------------------------
@@ -43,12 +48,6 @@ class RandomForestClassifier(Classifier):
     # _runOneSensorOneDay
     # -------------------------------------------------------------------------
     def _runOneSensorOneDay(self, bandDict, outName):
-
-        # Read the model before we do any real work.
-        MODEL_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                  'RandomForestModel.sav')
-
-        model = joblib.load(MODEL_FILE)
 
         # ---
         # Collapse the 2D bands into one dimension, and combine all bands
@@ -90,7 +89,7 @@ class RandomForestClassifier(Classifier):
 
         # Run the model.  Should be {0, 1}.
         df = pd.DataFrame(img)
-        predictions = model.predict(df)
+        predictions = self._model.predict(df)
         matrix = np.asarray(predictions, dtype=np.int16)
 
         reshp = matrix.reshape((BandReader.ROWS,
@@ -113,5 +112,3 @@ class RandomForestClassifier(Classifier):
                               BandReader.COLS)).astype(np.int16)
 
         Utils.writeRaster(self._outDir, out, name)
-
-
