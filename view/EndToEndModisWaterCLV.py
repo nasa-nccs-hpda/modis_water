@@ -74,6 +74,10 @@ def main():
                         default='.',
                         help='Output directory')
 
+    parser.add_argument('--georeferenced',
+                        action='store_true',
+                        help='Write products out georeferenced')
+
     args = parser.parse_args()
 
     # Classifier name
@@ -133,7 +137,8 @@ def main():
                                               args.t,
                                               br.MOD,
                                               classifier.getClassifierName(),
-                                              logger)
+                                              logger,
+                                              georeferenced=args.georeferenced)
 
     # ---
     # Post processing
@@ -145,8 +150,7 @@ def main():
         args.burn,
         classifier.getClassifierName(),
         args.o,
-        logger
-    )
+        logger)
 
     logger.info('Post processing.')
     postAnnualPath = QAMap.generateQA(args.y,
@@ -156,7 +160,8 @@ def main():
                                       annualMapPath,
                                       classifier.getClassifierName(),
                                       args.o,
-                                      logger)
+                                      logger,
+                                      georeferenced=args.georeferenced)
 
     SevenClassMap.generateSevenClass(args.y,
                                      args.t,
@@ -164,7 +169,8 @@ def main():
                                      postAnnualPath,
                                      classifierName,
                                      args.o,
-                                     logger)
+                                     logger,
+                                     georeferenced=args.georeferenced)
 
 
 # -----------------------------------------------------------------------------

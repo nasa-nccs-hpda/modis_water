@@ -26,7 +26,8 @@ class QAMap(object):
                    annualProductPath,
                    classifierName,
                    outDir,
-                   logger):
+                   logger,
+                   georeferenced=False):
 
         # Search for, read in our post processing rasters.
         demSearchTerm = 'GMTED.{}.slope.tif'.format(tile)
@@ -62,16 +63,25 @@ class QAMap(object):
         qaOutputName = 'MOD.A{}.{}.{}.AnnualWaterProductQA.{}'.format(
             year, tile, classifierName, Utils.getPostStr())
 
+        transform = annualProductDataset.GetGeoTransform() \
+            if georeferenced else None
+        projection = annualProductDataset.GetProjection() \
+            if georeferenced else None
+
         annualPath = QAMap._writeProduct(
             outDir,
             annualProductOutputName,
             annualProductOutput,
-            logger=logger)
+            logger=logger,
+            projection=projection,
+            transform=transform)
 
         QAMap._writeProduct(outDir,
                             qaOutputName,
                             qaOutput,
-                            logger=logger)
+                            logger=logger,
+                            projection=projection,
+                            transform=transform)
 
         return annualPath
 
@@ -107,7 +117,7 @@ class QAMap(object):
     # writeProduct
     # -------------------------------------------------------------------------
     @staticmethod
-    def _writeProduct(outDir, outName, array, logger):
+    def _writeProduct(outDir, outName, array, logger, projection, transform):
         cols = array.shape[0]
         rows = array.shape[1] if len(
             array.shape) > 1 else 1
@@ -115,6 +125,11 @@ class QAMap(object):
         driver = gdal.GetDriverByName('GTiff')
         ds = driver.Create(imageName, cols, rows, 1, gdal.GDT_Byte,
                            options=['COMPRESS=LZW'])
+        if projection:
+            ds.SetProjection(projection)
+        if transform:
+            ds.SetGeoTransform(transform)
+        
         band = ds.GetRasterBand(1)
         band.WriteArray(array)
         ds.FlushCache()

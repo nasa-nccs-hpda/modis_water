@@ -1,4 +1,4 @@
-
+import glob
 import os
 
 import numpy as np
@@ -86,7 +86,8 @@ class AnnualMap(object):
     # createAnnualMap
     # -------------------------------------------------------------------------
     @staticmethod
-    def createAnnualMap(dailyDir, year, tile, sensor, classifierName, logger):
+    def createAnnualMap(dailyDir, year, tile, sensor, classifierName, logger,
+                        georeferenced=False):
 
         sumWater, sumLand, sumObs, probWater, mask = \
             AnnualMap.accumulateDays(dailyDir,
@@ -95,6 +96,11 @@ class AnnualMap(object):
                                      sensor,
                                      classifierName,
                                      logger)
+        if georeferenced:
+            projection, transform = AnnualMap.getGeospatialInformation(
+                dailyDir, year, tile, sensor, classifierName, logger)
+        else:
+            projection, transform = None, None
 
         AnnualMap.writeTotal(sumWater, year, tile, sensor, classifierName,
                              'SumWater', dailyDir)
@@ -109,18 +115,36 @@ class AnnualMap(object):
                              'ProbWater', dailyDir)
 
         AnnualMap.writeTotal(mask, year, tile, sensor, classifierName,
-                             'Mask', dailyDir)
+                             'Mask', dailyDir, projection, transform)
 
         name = Utils.getImageName(
             year, tile, sensor, classifierName, None, 'Mask')
         return os.path.join(dailyDir, name + '.tif')
 
     # -------------------------------------------------------------------------
+    # geoGeoSpatialInformation
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def getGeospatialInformation(dailyDir, year, tile, sensor, classifierName):
+        imageName = os.path.join(dailyDir, Utils.getImageName(
+            year, tile, sensor, classifierName, day='***') + '.tif')
+        oneDailyFileList = glob.glob(imageName)
+        try:
+            oneDailyFile = oneDailyFileList[0]
+        except IndexError:
+            msg = 'Could not find any daily files: {}'.format(imageName)
+            raise RuntimeError(msg)
+        ds = gdal.Open(oneDailyFile)
+        transform = ds.GetGeoTransform()
+        projection = ds.GetProjection()
+        return projection, transform
+
+    # -------------------------------------------------------------------------
     # writeTotal
     # -------------------------------------------------------------------------
     @staticmethod
     def writeTotal(raster, year, tile, sensor, classifierName, postFix,
-                   outDir):
+                   outDir, projection=None, transform=None):
 
         name = Utils.getImageName(year,
                                   tile,
@@ -129,4 +153,5 @@ class AnnualMap(object):
                                   None,
                                   postFix)
 
-        Utils.writeRaster(outDir, raster, name)
+        Utils.writeRaster(outDir, raster, name,
+                          projection=projection, transform=transform)
