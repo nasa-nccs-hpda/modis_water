@@ -26,7 +26,8 @@ class SevenClassMap(object):
                            annualProductPath,
                            classifierName,
                            outDir,
-                           logger):
+                           logger,
+                           georeferenced=False):
 
         # Search and read in annual product and static seven-class.
         staticSevenPath = SevenClassMap._getStaticSevenClassPath(
@@ -84,6 +85,11 @@ class SevenClassMap(object):
         outputSevenClassArray = np.where(shoreLine == 1, 2,
                                          outputSevenClassArray)
 
+        transform = annualProductDataset.GetGeoTransform() \
+            if georeferenced else None
+        projection = annualProductDataset.GetProjection() \
+            if georeferenced else None
+
         # Write out the seven-class.
         outputSevenClassName = 'MOD.A{}.{}.{}.AnnualSevenClass.{}'.format(
             year,
@@ -96,7 +102,9 @@ class SevenClassMap(object):
                 outDir,
                 outputSevenClassName,
                 outputSevenClassArray,
-                logger=logger)
+                logger=logger,
+                projection=projection,
+                transform=transform)
         return imageName
 
     # -------------------------------------------------------------------------
@@ -147,7 +155,8 @@ class SevenClassMap(object):
     # writeSevenClass
     # -------------------------------------------------------------------------
     @staticmethod
-    def _writeSevenClass(outDir, outName, sevenClassArray, logger):
+    def _writeSevenClass(outDir, outName, sevenClassArray, logger, projection,
+                         transform):
         cols = sevenClassArray.shape[0]
         rows = sevenClassArray.shape[1] if len(
             sevenClassArray.shape) > 1 else 1
@@ -155,6 +164,10 @@ class SevenClassMap(object):
         driver = gdal.GetDriverByName('GTiff')
         ds = driver.Create(imageName, cols, rows, 1, gdal.GDT_Byte,
                            options=['COMPRESS=LZW'])
+        if projection:
+            ds.SetProjection(projection)
+        if transform:
+            ds.SetGeoTransform(transform)
         band = ds.GetRasterBand(1)
         band.WriteArray(sevenClassArray)
         ds.FlushCache()

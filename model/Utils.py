@@ -33,7 +33,8 @@ class Utils(object):
     # writeRaster
     # -------------------------------------------------------------------------
     @staticmethod
-    def writeRaster(outDir, pixels, name, cols=0, rows=0):
+    def writeRaster(outDir, pixels, name, cols=0, rows=0, projection=None,
+                    transform=None):
 
         cols = pixels.shape[0]
         rows = pixels.shape[1] if len(pixels.shape) > 1 else 1
@@ -42,6 +43,10 @@ class Utils(object):
 
         ds = driver.Create(imageName, cols, rows, 1, gdal.GDT_Int16,
                            options=['COMPRESS=LZW'])
+        if projection:
+            ds.SetProjection(projection)
+        if transform:
+            ds.SetGeoTransform(transform)
 
         ds.WriteRaster(0, 0, cols, rows, pixels.tobytes())
 
