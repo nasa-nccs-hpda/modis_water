@@ -98,7 +98,7 @@ class AnnualMap(object):
                                      logger)
         if georeferenced:
             projection, transform = AnnualMap.getGeospatialInformation(
-                dailyDir, year, tile, sensor, classifierName, logger)
+                dailyDir, year, tile, sensor, classifierName)
         else:
             projection, transform = None, None
 
