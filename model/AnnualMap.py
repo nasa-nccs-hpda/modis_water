@@ -5,6 +5,7 @@ import numpy as np
 
 from osgeo import gdal
 
+from core.model.GeospatialImageFile import GeospatialImageFile
 from modis_water.model.BandReader import BandReader
 from modis_water.model.Classifier import Classifier
 from modis_water.model.Utils import Utils
@@ -134,7 +135,7 @@ class AnnualMap(object):
         except IndexError:
             msg = 'Could not find any daily files: {}'.format(imageName)
             raise RuntimeError(msg)
-        ds = gdal.Open(oneDailyFile)
+        ds = GeospatialImageFile(oneDailyFile)._getDataset()
         transform = ds.GetGeoTransform()
         projection = ds.GetProjection()
         return projection, transform
