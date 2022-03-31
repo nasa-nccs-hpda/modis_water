@@ -37,8 +37,8 @@ class MaskGeneratorTestCase(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             MaskGenerator({})
 
-        br = BandReader([BandReader.SENZ, BandReader.SR1],
-                        BandReader.BASE_DIR,
+        br = BandReader('/css/modis/Collection6.1/L2G',
+                        [BandReader.SENZ, BandReader.SR1],
                         None)
 
         bandDict = br.read(BandReader.MOD, 2003, 'h09v05', 161)

@@ -18,10 +18,9 @@ from osgeo import gdal
 # -----------------------------------------------------------------------------
 class BandReader(object):
 
-    BASE_DIR = '/css/modis/Collection6.1/L2G'
     COLS = 4800
     ROWS = COLS
-    
+
     # Bands
     SENZ = 'SensorZenith_1'
     SOLZ = 'SolarZenith_1'
@@ -33,75 +32,75 @@ class BandReader(object):
     SR6 = 'sur_refl_b06_1'
     SR7 = 'sur_refl_b07_1'
     STATE = 'state_1km_1'
-    
+
     GA_BANDS = set([SENZ, SOLZ, SR3, SR4, SR5, SR6, SR7, STATE])
     GQ_BANDS = set([SR1, SR2])
     ALL_BANDS = GA_BANDS | GQ_BANDS
-    
+
     # Sensors
     MOD = 'MOD'
     MYD = 'MYD'
     SENSORS = set([MOD, MYD])
-    
+
     # -------------------------------------------------------------------------
     # __init__
     # -------------------------------------------------------------------------
-    def __init__(self, bands=None, baseDir=BASE_DIR, logger=None):
+    def __init__(self, baseDir, bands=None, logger=None):
 
         if not baseDir or \
             not os.path.exists(baseDir) or \
                 not os.path.isdir(baseDir):
-                
-            raise RuntimeError('Base dir., ' + 
-                               str(baseDir) + 
+
+            raise RuntimeError('Base dir., ' +
+                               str(baseDir) +
                                ', does not exist.')
-        
+
         self._baseDir = baseDir
         self._logger = logger
         self._xform = None
         self._proj = None
-        
+
         # ---
         # Set the bands.
         # ---
-        if bands == None:
-            
+        if bands is None:
+
             self._bands = BandReader.ALL_BANDS
 
         else:
-            
+
             setOfBands = set(bands)
             self._bands = setOfBands.intersection(BandReader.ALL_BANDS)
-                          
+
             if setOfBands != self._bands:
                 if self._logger:
                     self._logger.WARN('Some input bands are invalid.')
-                    
+
     # -------------------------------------------------------------------------
     # getBandName
     # -------------------------------------------------------------------------
     @staticmethod
     def getBandName(bandFile):
-        
+
         band = os.path.splitext(os.path.basename(bandFile))[0]. \
-               split('-')[1]
-        
+            split('-')[1]
+
         return band
-        
+
     # -------------------------------------------------------------------------
     # getXform
     # -------------------------------------------------------------------------
     def getXform(self):
 
         return self._xform
-                
+
     # -------------------------------------------------------------------------
     # getProj
     # -------------------------------------------------------------------------
     def getProj(self):
 
         return self._proj
-            
+
     # -------------------------------------------------------------------------
     # read
     #
@@ -109,16 +108,16 @@ class BandReader(object):
     # files, which is useful for testing.  ListExpectedFiles uses this.
     # -------------------------------------------------------------------------
     def read(self, sensor, year, tile, day, read=True):
-        
+
         self._validate(sensor, year, tile, day)
 
         # Define the base glob pattern
         pattern = str(year)
-        
+
         if day:
-        
+
             pattern += str(day).zfill(3)
-            
+
         else:
             pattern += '*'
 
@@ -128,29 +127,29 @@ class BandReader(object):
         gaBands = self._bands & BandReader.GA_BANDS
         gqBands = self._bands & BandReader.GQ_BANDS
         bandDict = {}
-        
+
         if gaBands:
-            
-            globDir = os.path.join(self._baseDir, 
-                                   sensor + '09GA', 
-                                   str(year), 
+
+            globDir = os.path.join(self._baseDir,
+                                   sensor + '09GA',
+                                   str(year),
                                    '*GA.A' + pattern)
-            
+
             hdfFiles = glob.glob(globDir)
             bandDict.update(self._readBandsFromHdfs(hdfFiles, gaBands))
-            
+
         if gqBands:
 
-            globDir = os.path.join(self._baseDir, 
-                                   sensor + '09GQ', 
-                                   str(year), 
+            globDir = os.path.join(self._baseDir,
+                                   sensor + '09GQ',
+                                   str(year),
                                    '*GQ.A' + pattern)
-            
+
             hdfFiles = glob.glob(globDir)
             bandDict.update(self._readBandsFromHdfs(hdfFiles, gqBands, True))
 
         return bandDict
-        
+
     # -------------------------------------------------------------------------
     # _readBandsFromHdfs
     # -------------------------------------------------------------------------
@@ -174,27 +173,27 @@ class BandReader(object):
         }
 
         bandDict = {}
-        
+
         for hdfFile in hdfFiles:
-            
+
             for band in bands:
-            
+
                 subDataSet = 'HDF4_EOS:EOS_GRID:"' + \
                              hdfFile + '":' + \
                              FULL_BAND_NAMES[band]
 
                 ds = gdal.Open(subDataSet)
-                
+
                 if setXform and not self._xform:
                     self._xform = ds.GetGeoTransform()
 
                 if setXform and not self._proj:
                     self._proj = ds.GetProjection()
-                
+
                 bandDict[band] = ds.ReadAsArray(0, 0, None, None, None,
                                                 BandReader.COLS,
                                                 BandReader.ROWS)
-                                                
+
         return bandDict
 
     # -------------------------------------------------------------------------
@@ -218,5 +217,4 @@ class BandReader(object):
                 raise RuntimeError(msg)
 
         if year < 1999:
-            raise RuntimeError('Invalid year: ' + str(year))        
-        
+            raise RuntimeError('Invalid year: ' + str(year))

@@ -34,6 +34,7 @@ class Classifier(object):
                  year,
                  tile,
                  outDir,
+                 modDir,
                  startDay=1,
                  endDay=365,
                  logger=None,
@@ -96,7 +97,7 @@ class Classifier(object):
         # ---
         bands = br.ALL_BANDS if inBands is None else set(inBands)
         bands = bands.union(MaskGenerator.REQUIRED_BANDS)
-        self._bandReader = br(bands)
+        self._bandReader = br(modDir, bands)
 
         # ---
         # Set the days.
