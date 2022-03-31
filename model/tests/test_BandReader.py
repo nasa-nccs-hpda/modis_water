@@ -21,8 +21,9 @@ class BandReaderTestCase(unittest.TestCase):
     # -------------------------------------------------------------------------
     def testValidInit(self):
 
-        BandReader(bands=None, logger=None)
-        BandReader(bands=[BandReader.SENZ, BandReader.SR1], logger=None)
+        BandReader('/css/modis/Collection6.1/L2G', bands=None, logger=None)
+        BandReader('/css/modis/Collection6.1/L2G',
+                   bands=[BandReader.SENZ, BandReader.SR1], logger=None)
 
     # -------------------------------------------------------------------------
     # testReadFiles
@@ -32,8 +33,8 @@ class BandReaderTestCase(unittest.TestCase):
         streamHandler = logging.StreamHandler(sys.stdout)
         logger.addHandler(streamHandler)
 
-        br = BandReader([BandReader.SENZ, BandReader.SR1],
-                        BandReader.BASE_DIR,
+        br = BandReader('/css/modis/Collection6.1/L2G',
+                        [BandReader.SENZ, BandReader.SR1],
                         logger)
 
         bandDict = br.read(BandReader.MOD, 2003, 'h09v05', 161)

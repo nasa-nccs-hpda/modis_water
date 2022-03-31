@@ -57,6 +57,10 @@ def main():
                         required=True,
                         help='Path to GMTED DEM')
 
+    parser.add_argument('-mod',
+                        required=True,
+                        help='Path to MODIS MOD09GA and GQ products')
+
     parser.add_argument('-burn',
                         required=True,
                         help='Path to MCD burn scar product')
@@ -109,6 +113,7 @@ def main():
         classifier = SimpleClassifier(args.y,
                                       args.t,
                                       args.o,
+                                      args.mod,
                                       startDay=args.startDay,
                                       endDay=args.endDay,
                                       logger=logger,
@@ -120,6 +125,7 @@ def main():
         classifier = RandomForestClassifier(args.y,
                                             args.t,
                                             args.o,
+                                            args.mod,
                                             startDay=args.startDay,
                                             endDay=args.endDay,
                                             logger=logger,

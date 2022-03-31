@@ -15,12 +15,12 @@ class SimpleClassifier(Classifier):
     # -------------------------------------------------------------------------
     # __init__
     # -------------------------------------------------------------------------
-    def __init__(self, year, tile, outDir, startDay=1, endDay=365,
+    def __init__(self, year, tile, outDir, modDir, startDay=1, endDay=365,
                  logger=None, sensors=set([br.MOD]), debug=False):
 
         super(SimpleClassifier, self). \
-            __init__(year, tile, outDir, startDay, endDay, logger, sensors,
-                     debug,
+            __init__(year, tile, outDir, modDir, startDay, endDay, logger,
+                     sensors, debug,
                      [br.SOLZ, br.STATE, br.SR1, br.SR2, br.SR3, br.SR4,
                       br.SR5, br.SR6, br.SR7])
 
@@ -51,14 +51,14 @@ class SimpleClassifier(Classifier):
         # Define the rules as masks.
         # ---
         subcondition1 = (swir5 >= 453) & (blue < 675) & (nir > 100)
-        land1  = (swir5 < 1017) & (swir7 < 773) & subcondition1
+        land1 = (swir5 < 1017) & (swir7 < 773) & subcondition1
         water1 = (swir5 < 1017) & (swir7 < 773) & ~subcondition1
 
         water2 = (swir5 >= 1017) & (nir < 1777) & (ndvi < 0.0825) & \
-                 (blue  < 651)
+                 (blue < 651)
 
-        land2  = (swir5 >= 1017) & (nir < 1777) & (ndvi < 0.0825) & \
-                 (blue >= 651)
+        land2 = (swir5 >= 1017) & (nir < 1777) & (ndvi < 0.0825) & \
+            (blue >= 651)
 
         land3 = (swir5 >= 1017) & (nir < 1777) & (ndvi >= 0.0825) & \
                 (ndvi < 0.4125) & (nir >= 1329) & (swir7 < 1950)

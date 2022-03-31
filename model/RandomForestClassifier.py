@@ -23,12 +23,12 @@ class RandomForestClassifier(Classifier):
     # -------------------------------------------------------------------------
     # __init__
     # -------------------------------------------------------------------------
-    def __init__(self, year, tile, outDir, startDay=1, endDay=365,
+    def __init__(self, year, tile, outDir, modDir, startDay=1, endDay=365,
                  logger=None, sensors=set([BandReader.MOD]), debug=False):
 
         super(RandomForestClassifier, self). \
-            __init__(year, tile, outDir, startDay, endDay, logger, sensors,
-                     debug,
+            __init__(year, tile, outDir, modDir, startDay, endDay, logger,
+                     sensors, debug,
                      [BandReader.SR1, BandReader.SR2, BandReader.SR3,
                       BandReader.SR4, BandReader.SR5, BandReader.SR6,
                       BandReader.SR7])
