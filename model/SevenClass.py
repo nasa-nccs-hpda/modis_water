@@ -91,7 +91,7 @@ class SevenClassMap(object):
             if georeferenced else None
 
         # Write out the seven-class.
-        outputSevenClassName = 'MOD.A{}.{}.{}.AnnualSevenClass.{}'.format(
+        outputSevenClassName = 'MOD44W.A{}.{}.{}.AnnualSevenClass.{}'.format(
             year,
             tile,
             classifierName,

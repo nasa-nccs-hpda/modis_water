@@ -58,9 +58,9 @@ class QAMap(object):
 
         # Write out the final annual product in addition to the QA map.
         annualProductOutputName = \
-            'MOD.A{}.{}.{}.AnnualWaterProduct.{}'.format(
+            'MOD44W.A{}.{}.{}.AnnualWaterProduct.{}'.format(
                 year, tile, classifierName, Utils.getPostStr())
-        qaOutputName = 'MOD.A{}.{}.{}.AnnualWaterProductQA.{}'.format(
+        qaOutputName = 'MOD44W.A{}.{}.{}.AnnualWaterProductQA.{}'.format(
             year, tile, classifierName, Utils.getPostStr())
 
         transform = annualProductDataset.GetGeoTransform() \
