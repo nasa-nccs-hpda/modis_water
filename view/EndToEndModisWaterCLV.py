@@ -82,6 +82,10 @@ def main():
                         action='store_true',
                         help='Write products out georeferenced')
 
+    parser.add_argument('--geotiff',
+                        action='store_true',
+                        help='Write products out as geotiff instead of bin.')
+
     args = parser.parse_args()
 
     # Classifier name
@@ -167,6 +171,7 @@ def main():
                                       classifier.getClassifierName(),
                                       args.o,
                                       logger,
+                                      geoTiff=args.geotiff,
                                       georeferenced=args.georeferenced)
 
     SevenClassMap.generateSevenClass(args.y,
@@ -176,6 +181,7 @@ def main():
                                      classifierName,
                                      args.o,
                                      logger,
+                                     geoTiff=args.geotiff,
                                      georeferenced=args.georeferenced)
 
 

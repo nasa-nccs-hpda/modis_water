@@ -27,6 +27,7 @@ class QAMap(object):
                    classifierName,
                    outDir,
                    logger,
+                   geoTiff=False,
                    georeferenced=False):
 
         # Search for, read in our post processing rasters.
@@ -74,14 +75,16 @@ class QAMap(object):
             annualProductOutput,
             logger=logger,
             projection=projection,
-            transform=transform)
+            transform=transform,
+            geoTiff=geoTiff)
 
         QAMap._writeProduct(outDir,
                             qaOutputName,
                             qaOutput,
                             logger=logger,
                             projection=projection,
-                            transform=transform)
+                            transform=transform,
+                            geoTiff=geoTiff)
 
         return annualPath
 
@@ -117,22 +120,27 @@ class QAMap(object):
     # writeProduct
     # -------------------------------------------------------------------------
     @staticmethod
-    def _writeProduct(outDir, outName, array, logger, projection, transform):
+    def _writeProduct(outDir, outName, array, logger, projection, transform,
+                      geoTiff=False):
         cols = array.shape[0]
         rows = array.shape[1] if len(
             array.shape) > 1 else 1
-        imageName = os.path.join(outDir, outName + '.tif')
-        driver = gdal.GetDriverByName('GTiff')
+        fileType = '.tif' if geoTiff else '.bin'
+        imageName = os.path.join(outDir, outName + fileType)
+        driver = gdal.GetDriverByName('GTiff') if geoTiff \
+            else gdal.GetDriverByName('ENVI')
+        options = ['COMPRESS=LZW'] if geoTiff else []
         ds = driver.Create(imageName, cols, rows, 1, gdal.GDT_Byte,
-                           options=['COMPRESS=LZW'])
+                           options=options)
         if projection:
             ds.SetProjection(projection)
         if transform:
             ds.SetGeoTransform(transform)
-        
+
         band = ds.GetRasterBand(1)
-        band.WriteArray(array)
-        ds.FlushCache()
+        band.WriteArray(array, 0, 0)
+        band = None
+        ds = None
         if logger:
             logger.info('Wrote annual QA products to: {}'.format(imageName))
         return imageName

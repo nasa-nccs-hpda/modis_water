@@ -27,6 +27,7 @@ class SevenClassMap(object):
                            classifierName,
                            outDir,
                            logger,
+                           geoTiff=False,
                            georeferenced=False):
 
         # Search and read in annual product and static seven-class.
@@ -104,6 +105,7 @@ class SevenClassMap(object):
                 outputSevenClassArray,
                 logger=logger,
                 projection=projection,
+                geoTiff=geoTiff,
                 transform=transform)
         return imageName
 
@@ -156,21 +158,25 @@ class SevenClassMap(object):
     # -------------------------------------------------------------------------
     @staticmethod
     def _writeSevenClass(outDir, outName, sevenClassArray, logger, projection,
-                         transform):
+                         transform, geoTiff=False):
         cols = sevenClassArray.shape[0]
         rows = sevenClassArray.shape[1] if len(
             sevenClassArray.shape) > 1 else 1
-        imageName = os.path.join(outDir, outName + '.tif')
-        driver = gdal.GetDriverByName('GTiff')
+        fileType = '.tif' if geoTiff else '.bin'
+        imageName = os.path.join(outDir, outName + fileType)
+        driver = gdal.GetDriverByName('GTiff') if geoTiff \
+            else gdal.GetDriverByName('ENVI')
+        options = ['COMPRESS=LZW'] if geoTiff else []
         ds = driver.Create(imageName, cols, rows, 1, gdal.GDT_Byte,
-                           options=['COMPRESS=LZW'])
+                           options=options)
         if projection:
             ds.SetProjection(projection)
         if transform:
             ds.SetGeoTransform(transform)
         band = ds.GetRasterBand(1)
-        band.WriteArray(sevenClassArray)
-        ds.FlushCache()
+        band.WriteArray(sevenClassArray, 0, 0)
+        band = None
+        ds = None
         if logger:
             logger.info('Wrote annual seven class to: {}'.format(imageName))
         return imageName
