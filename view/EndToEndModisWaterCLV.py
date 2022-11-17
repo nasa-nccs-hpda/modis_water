@@ -16,7 +16,7 @@ from modis_water.model.SimpleClassifier import SimpleClassifier
 # -----------------------------------------------------------------------------
 # main
 #
-# python modis_water/view/EndToEndModisWaterCLV.py -y 2020 -t h09v05 --classifier rf --startDay 1 --endDay 365 -static /adapt/nobackup/projects/ilab/scratch/mcarrol2/MODIS_water_eval/MODIS_tiles/restore_nodata -dem /adapt/nobackup/projects/ilab/scratch/cssprad1/MODIS_water/data/GMTED/MODIS_tiles -burn /css/modis/Collection6/L3/MCD64A1-BurnArea -o .
+# python modis_water/view/EndToEndModisWaterCLV.py -y 2020 -t h09v05 --classifier rf --startDay 360 --endDay 366 -static /explore/nobackup/projects/ilab/data/MODIS/ancillary/MODIS_Seven_Class_maxextent -dem /explore/nobackup/projects/ilab/data/MODIS/ancillary/MODIS_GMTED_DEM_slope/ -burn /css/modis/Collection6/L3/MCD64A1-BurnArea -o /explore/nobackup/people/rlgill/SystemTesting/modis-water -mod /css/modis/Collection6.1/L2G
 # -----------------------------------------------------------------------------
 def main():
 
@@ -38,15 +38,15 @@ def main():
     parser.add_argument('--startDay',
                         type=int,
                         default=1,
-                        choices=range(1, 366),
-                        metavar='1-365',
+                        choices=range(1, 367),  # for leap year
+                        metavar='1-366',
                         help='the earliest julian day to classify')
 
     parser.add_argument('--endDay',
                         type=int,
                         default=365,
-                        choices=range(1, 366),
-                        metavar='1-365',
+                        choices=range(1, 367),  # for leap year
+                        metavar='1-366',
                         help='the latest julian day to classify')
 
     parser.add_argument('-static',
