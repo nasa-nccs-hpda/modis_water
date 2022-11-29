@@ -19,16 +19,18 @@ class QAMap(object):
     # generateSevenClass
     # -------------------------------------------------------------------------
     @staticmethod
-    def generateQA(year,
-                   tile,
-                   demDir,
-                   burnedAreaPath,
-                   annualProductPath,
-                   classifierName,
-                   outDir,
-                   logger,
-                   geoTiff=False,
-                   georeferenced=False):
+    def generateQA(
+            sensor,
+            year,
+            tile,
+            demDir,
+            burnedAreaPath,
+            annualProductPath,
+            classifierName,
+            outDir,
+            logger,
+            geoTiff=False,
+            georeferenced=False):
 
         # Search for, read in our post processing rasters.
         demSearchTerm = 'GMTED.{}.slope.tif'.format(tile)
@@ -59,10 +61,10 @@ class QAMap(object):
 
         # Write out the final annual product in addition to the QA map.
         annualProductOutputName = \
-            'MOD44W.A{}.{}.{}.AnnualWaterProduct.{}'.format(
-                year, tile, classifierName, Utils.getPostStr())
-        qaOutputName = 'MOD44W.A{}.{}.{}.AnnualWaterProductQA.{}'.format(
-            year, tile, classifierName, Utils.getPostStr())
+            '{}44W.A{}.{}.{}.AnnualWaterProduct.{}'.format(
+                sensor, year, tile, classifierName, Utils.getPostStr())
+        qaOutputName = '{}44W.A{}.{}.{}.AnnualWaterProductQA.{}'.format(
+            sensor, year, tile, classifierName, Utils.getPostStr())
 
         transform = annualProductDataset.GetGeoTransform() \
             if georeferenced else None

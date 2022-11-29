@@ -20,15 +20,17 @@ class SevenClassMap(object):
     # generateSevenClass
     # -------------------------------------------------------------------------
     @staticmethod
-    def generateSevenClass(year,
-                           tile,
-                           staticSevenClassDir,
-                           annualProductPath,
-                           classifierName,
-                           outDir,
-                           logger,
-                           geoTiff=False,
-                           georeferenced=False):
+    def generateSevenClass(
+            sensor,
+            year,
+            tile,
+            staticSevenClassDir,
+            annualProductPath,
+            classifierName,
+            outDir,
+            logger,
+            geoTiff=False,
+            georeferenced=False):
 
         # Search and read in annual product and static seven-class.
         staticSevenPath = SevenClassMap._getStaticSevenClassPath(
@@ -92,7 +94,8 @@ class SevenClassMap(object):
             if georeferenced else None
 
         # Write out the seven-class.
-        outputSevenClassName = 'MOD44W.A{}.{}.{}.AnnualSevenClass.{}'.format(
+        outputSevenClassName = '{}44W.A{}.{}.{}.AnnualSevenClass.{}'.format(
+            sensor,
             year,
             tile,
             classifierName,
