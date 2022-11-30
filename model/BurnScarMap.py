@@ -17,18 +17,21 @@ class BurnScarMap(object):
     # generateAnnualBurnScarMap
     # -------------------------------------------------------------------------
     @staticmethod
-    def generateAnnualBurnScarMap(year,
-                                  tile,
-                                  mcdDir,
-                                  classifierName,
-                                  outDir,
-                                  logger):
+    def generateAnnualBurnScarMap(
+            sensor,
+            year,
+            tile,
+            mcdDir,
+            classifierName,
+            outDir,
+            logger):
         subdirhdfs = BurnScarMap._getAllFiles(
             path=mcdDir, year=year, tile=tile)
         burnScarMapList = [BurnScarMap._getMatFromHDF(
             subdir, 'Burn Date', 'Uncertainty') for subdir in subdirhdfs]
         outputAnnualMask = BurnScarMap._logicalOrMask(burnScarMapList)
         outpath = BurnScarMap._setupBurnScarOutputPath(
+            sensor=sensor,
             year=year,
             tile=tile,
             classifierName=classifierName,
@@ -98,9 +101,10 @@ class BurnScarMap(object):
     # setupBurnScarOutputPath
     # -------------------------------------------------------------------------
     @staticmethod
-    def _setupBurnScarOutputPath(year, tile, classifierName, outputPath):
-        fileName = 'MOD.A{}.{}.{}.AnnualBurnScar.{}.tif'.format(
-            year, tile, classifierName, Utils.getPostStr())
+    def _setupBurnScarOutputPath(sensor, year, tile, classifierName,
+                                 outputPath):
+        fileName = '{}.A{}.{}.{}.AnnualBurnScar.{}.tif'.format(
+            sensor, year, tile, classifierName, Utils.getPostStr())
         outPath = os.path.join(outputPath, fileName)
         return outPath
 
