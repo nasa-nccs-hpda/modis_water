@@ -1,13 +1,25 @@
+from collections import namedtuple
 import datetime
 import os
 
 from osgeo import gdal
 
 
+DayRange = namedtuple('DayRange', 'start end')
+
 # -----------------------------------------------------------------------------
 # Class Utils
 # -----------------------------------------------------------------------------
 class Utils(object):
+
+    EXCLUSIONS = {'v00': DayRange(177, 256),
+                  'v01': DayRange(161, 256),
+                  'v02': DayRange(145, 288),
+                  'v03': DayRange(129, 304),
+                  'v17': DayRange(177, 256),
+                  'v16': DayRange(161, 256),
+                  'v15': DayRange(145, 288),
+                  'v14': DayRange(129, 304)}
 
     # -------------------------------------------------------------------------
     # getImageName
