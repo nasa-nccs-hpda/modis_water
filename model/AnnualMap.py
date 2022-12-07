@@ -27,19 +27,30 @@ class AnnualMap(object):
         sumLand = np.zeros(shape, dtype=np.int16)
         sumBad = np.zeros(shape, dtype=np.int16)
 
+        inclusionDays = Utils.INCLUSIONS.get(tile[3:])
         exclusionDays = Utils.EXCLUSIONS.get(tile[3:])
+        
+        if logger:
+        
+            if inclusionDays:
+                
+                logger.info('Found inclusion days for ' + tile + ': ' +
+                            str(inclusionDays.start) + ' - ' + 
+                            str(inclusionDays.end))
             
-        if exclusionDays and logger:
+            if exclusionDays:
+                
+                logger.info('Found exclusion days for ' + tile + ': ' +
+                            str(exclusionDays.start) + ' - ' + 
+                            str(exclusionDays.end))
             
-            logger.info('Found exclusion days for ' + tile + ': ' +
-                        str(exclusionDays.start) + ' - ' + 
-                        str(exclusionDays.end))
-            
-        for day in range(1, 366):
+        for day in range(1, 367):
 
-            if exclusionDays and \
-                (day < exclusionDays.start or \
-                 day > exclusionDays.end):
+            if (not inclusionDays and not exclusionDays) or \
+                (inclusionDays and \
+                 day >= inclusionDays.start and day <= inclusionDays.end) or \
+                (exclusionDays and \
+                 (day < exclusionDays.start or day > exclusionDays.end)):
             
                 sumWater, sumLand, sumBad = \
                     AnnualMap.accumulateDay(dailyDir,

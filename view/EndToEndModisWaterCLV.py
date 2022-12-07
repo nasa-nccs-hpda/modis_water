@@ -16,7 +16,7 @@ from modis_water.model.SimpleClassifier import SimpleClassifier
 # -----------------------------------------------------------------------------
 # main
 #
-# python modis_water/view/EndToEndModisWaterCLV.py -y 2020 -t h09v05 --classifier rf --startDay 360 --endDay 366 -static /explore/nobackup/projects/ilab/data/MODIS/ancillary/MODIS_Seven_Class_maxextent -dem /explore/nobackup/projects/ilab/data/MODIS/ancillary/MODIS_GMTED_DEM_slope/ -burn /css/modis/Collection6/L3/MCD64A1-BurnArea -o /explore/nobackup/people/rlgill/SystemTesting/modis-water -mod /css/modis/Collection6.1/L2G
+# python modis_water/view/EndToEndModisWaterCLV.py -y 2020 -t h09v05 --classifier rf -static /explore/nobackup/projects/ilab/data/MODIS/ancillary/MODIS_Seven_Class_maxextent -dem /explore/nobackup/projects/ilab/data/MODIS/ancillary/MODIS_GMTED_DEM_slope/ -burn /css/modis/Collection6/L3/MCD64A1-BurnArea -o /explore/nobackup/people/rlgill/SystemTesting/testModisWater -mod /css/modis/Collection6.1/L2G
 # -----------------------------------------------------------------------------
 def main():
 
@@ -42,19 +42,19 @@ def main():
                         action='store_true',
                         help='show extra output and write intermediate files')
 
-    parser.add_argument('--startDay',
-                        type=int,
-                        default=1,
-                        choices=range(1, 367),  # for leap year
-                        metavar='1-366',
-                        help='the earliest julian day to classify')
-
-    parser.add_argument('--endDay',
-                        type=int,
-                        default=365,
-                        choices=range(1, 367),  # for leap year
-                        metavar='1-366',
-                        help='the latest julian day to classify')
+    # parser.add_argument('--startDay',
+    #                     type=int,
+    #                     default=1,
+    #                     choices=range(1, 367),  # for leap year
+    #                     metavar='1-366',
+    #                     help='the earliest julian day to classify')
+    #
+    # parser.add_argument('--endDay',
+    #                     type=int,
+    #                     default=365,
+    #                     choices=range(1, 367),  # for leap year
+    #                     metavar='1-366',
+    #                     help='the latest julian day to classify')
 
     parser.add_argument('-static',
                         required=True,
@@ -108,8 +108,8 @@ def main():
     # ---
     # Validate day range.
     # ---
-    if args.startDay > args.endDay:
-        raise ValueError('The start day must be before the end day.')
+    # if args.startDay > args.endDay:
+    #     raise ValueError('The start day must be before the end day.')
 
     classifier = None
 
@@ -119,8 +119,8 @@ def main():
                                       args.t,
                                       args.o,
                                       args.mod,
-                                      startDay=args.startDay,
-                                      endDay=args.endDay,
+                                      startDay=1,  # args.startDay,
+                                      endDay=366,  #args.endDay,
                                       logger=logger,
                                       sensors=sensors,
                                       debug=args.debug)
@@ -131,8 +131,8 @@ def main():
                                             args.t,
                                             args.o,
                                             args.mod,
-                                            startDay=args.startDay,
-                                            endDay=args.endDay,
+                                            startDay=1,  # args.startDay,
+                                            endDay=366,  # args.endDay,
                                             logger=logger,
                                             sensors=sensors,
                                             debug=args.debug)

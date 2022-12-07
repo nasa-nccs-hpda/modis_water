@@ -12,11 +12,12 @@ DayRange = namedtuple('DayRange', 'start end')
 # -----------------------------------------------------------------------------
 class Utils(object):
 
-    EXCLUSIONS = {'v00': DayRange(177, 256),
+    INCLUSIONS = {'v00': DayRange(177, 256),
                   'v01': DayRange(161, 256),
                   'v02': DayRange(145, 288),
-                  'v03': DayRange(129, 304),
-                  'v17': DayRange(177, 256),
+                  'v03': DayRange(129, 304)}
+                  
+    EXCLUSIONS = {'v17': DayRange(177, 256),
                   'v16': DayRange(161, 256),
                   'v15': DayRange(145, 288),
                   'v14': DayRange(129, 304)}
