@@ -16,7 +16,7 @@ from modis_water.model.SimpleClassifier import SimpleClassifier
 # -----------------------------------------------------------------------------
 # main
 #
-# python modis_water/view/EndToEndModisWaterCLV.py -y 2020 -t h09v05 --classifier rf -static /explore/nobackup/projects/ilab/data/MODIS/ancillary/MODIS_Seven_Class_maxextent -dem /explore/nobackup/projects/ilab/data/MODIS/ancillary/MODIS_GMTED_DEM_slope/ -burn /css/modis/Collection6/L3/MCD64A1-BurnArea -o /explore/nobackup/people/rlgill/SystemTesting/testModisWater -mod /css/modis/Collection6.1/L2G
+# python modis_water/view/EndToEndModisWaterCLV.py -y 2006 -t h09v05 --classifier rf -static /explore/nobackup/projects/ilab/data/MODIS/ancillary/MODIS_Seven_Class_maxextent -dem /explore/nobackup/projects/ilab/data/MODIS/ancillary/MODIS_GMTED_DEM_slope/ -burn /css/modis/Collection6/L3/MCD64A1-BurnArea -o /explore/nobackup/people/rlgill/SystemTesting/testModisWater2019 -mod /css/modis/Collection6.1/L2G
 # -----------------------------------------------------------------------------
 def main():
 
