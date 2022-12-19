@@ -2,8 +2,10 @@ import glob
 import os
 
 from osgeo import gdal
+import rasterio as rio
 import numpy as np
 
+from modis_water.model.BandReader import BandReader
 from modis_water.model.Utils import Utils
 
 
@@ -13,7 +15,7 @@ from modis_water.model.Utils import Utils
 class QAMap(object):
 
     DTYPE = np.uint8
-    TR = 231.656358263958253
+    NCOLS, NROWS = 4800, 4800
 
     # -------------------------------------------------------------------------
     # generateSevenClass
@@ -33,18 +35,13 @@ class QAMap(object):
             georeferenced=False):
 
         # Search for, read in our post processing rasters.
-        demSearchTerm = 'GMTED.{}.slope.tif'.format(tile)
-        demSlopeDatasetPath = QAMap._getStaticDatasetPath(
-            demDir, demSearchTerm)
+        demSlopeDataArray = QAMap._getGMTEDArray(tile, demDir)
 
         annualProductDataset = gdal.Open(annualProductPath)
-        demSlopeDataset = gdal.Open(demSlopeDatasetPath)
-
         annualProductArray = annualProductDataset.GetRasterBand(
             1).ReadAsArray()
-        demSlopeDataArray = demSlopeDataset.GetRasterBand(
-            1).ReadAsArray()
-        burnScarArray = QAMap._buildAndReadTranslatedVrt(burnedAreaPath)
+
+        burnScarArray = QAMap._readAndResample(burnedAreaPath)
 
         annualProductOutput = annualProductArray.copy()
         qaOutput = np.zeros(annualProductArray.shape, dtype=QAMap.DTYPE)
@@ -91,6 +88,28 @@ class QAMap(object):
         return annualPath
 
     # -------------------------------------------------------------------------
+    # _getGMTEDArray
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _getGMTEDArray(tile, demDir):
+        exclusionDays = Utils.EXCLUSIONS.get(tile[3:])
+        try:
+            demSearchTerm = 'GMTED.{}.slope.tif'.format(tile)
+            demSlopeDatasetPath = QAMap._getStaticDatasetPath(
+                demDir, demSearchTerm)
+            demSlopeDataset = gdal.Open(demSlopeDatasetPath)
+            demSlopeDataArray = demSlopeDataset.GetRasterBand(
+                1).ReadAsArray()
+        except FileNotFoundError as initialException:
+            if exclusionDays:
+                demSlopeDataArray = np.zeros(
+                    (BandReader.COLS, BandReader.ROWS),
+                    dtype=QAMap.DTYPE)
+            else:
+                raise initialException
+        return demSlopeDataArray
+
+    # -------------------------------------------------------------------------
     # getStaticDatasetPath
     # -------------------------------------------------------------------------
     @staticmethod
@@ -106,16 +125,15 @@ class QAMap(object):
             raise FileNotFoundError(msg)
 
     # -------------------------------------------------------------------------
-    # buildAndReadTranslatedVrt
+    # _readAndResample
     # -------------------------------------------------------------------------
     @staticmethod
-    def _buildAndReadTranslatedVrt(filepath, tr=231.656358, bandNum=1):
-        vrt_opts = gdal.BuildVRTOptions(xRes=tr, yRes=tr, resampleAlg='cubic')
-        vrt = gdal.BuildVRT('tmp.vrt', filepath, options=vrt_opts)
-        band = vrt.GetRasterBand(bandNum).ReadAsArray()
-        del vrt
-        if os.path.exists('tmp.vrt'):
-            os.remove('tmp.vrt')
+    def _readAndResample(filepath, bandNum=1):
+        outShape = (BandReader.COLS, BandReader.ROWS)
+        resamplingMethod = rio.enums.Resampling(2)
+        with rio.open(filepath) as dataset:
+            band = dataset.read(bandNum, out_shape=outShape,
+                                resampling=resamplingMethod)
         return band
 
     # -------------------------------------------------------------------------

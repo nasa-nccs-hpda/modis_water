@@ -12,6 +12,8 @@ from modis_water.model.Utils import Utils
 # -------------------------------------------------------------------------
 class BurnScarMap(object):
     DTYPE = np.uint8
+    COLS = 2400
+    ROWS = 2400
 
     # -------------------------------------------------------------------------
     # generateAnnualBurnScarMap
@@ -25,10 +27,26 @@ class BurnScarMap(object):
             classifierName,
             outDir,
             logger):
-        subdirhdfs = BurnScarMap._getAllFiles(
-            path=mcdDir, year=year, tile=tile)
-        burnScarMapList = [BurnScarMap._getMatFromHDF(
-            subdir, 'Burn Date', 'Uncertainty') for subdir in subdirhdfs]
+
+        # Test to see if tile in list of tiles which do not
+        # need a burn scar product.
+        inclusionDays = Utils.INCLUSIONS.get(tile[3:])
+        exclusionDays = Utils.EXCLUSIONS.get(tile[3:])
+
+        try:
+            subdirhdfs = BurnScarMap._getAllFiles(
+                path=mcdDir, year=year, tile=tile)
+            burnScarMapList = [BurnScarMap._getMatFromHDF(
+                subdir, 'Burn Date', 'Uncertainty') for subdir in subdirhdfs]
+        except FileNotFoundError:
+            msg = 'MCD64A1 not found for {}.'.format(tile)
+            if exclusionDays or inclusionDays:
+                if logger:
+                    logger.info(msg + ' Using empty burn scar product.')
+                burnScarMapList = []
+            else:
+                raise FileNotFoundError(msg)
+
         outputAnnualMask = BurnScarMap._logicalOrMask(burnScarMapList)
         outpath = BurnScarMap._setupBurnScarOutputPath(
             sensor=sensor,
@@ -36,14 +54,8 @@ class BurnScarMap(object):
             tile=tile,
             classifierName=classifierName,
             outputPath=outDir)
-        geo, proj, ncols, nrows = BurnScarMap._getBurnScarRasterInfo(
-            subdirhdfs[0])
         BurnScarMap._outputBurnScarRaster(outPath=outpath,
                                           outmat=outputAnnualMask,
-                                          geo=geo,
-                                          proj=proj,
-                                          ncols=ncols,
-                                          nrows=nrows,
                                           logger=logger)
         return outpath
 
@@ -72,7 +84,7 @@ class BurnScarMap(object):
             subdirs = sorted(os.listdir(pathToPrepend))
         except FileNotFoundError:
             msg = 'Could not find dirs in {}'.format(pathToPrepend)
-            raise RuntimeError(msg)
+            raise FileNotFoundError(msg)
 
         subdirs = [os.path.join(pathToPrepend, subdir) for subdir in subdirs]
 
@@ -80,8 +92,7 @@ class BurnScarMap(object):
             subdirhdfs = [glob(os.path.join(subdir, '*{}*'.format(tile)))[0]
                           for subdir in subdirs]
         except IndexError:
-            msg = 'Could not find burn scar files'
-            raise RuntimeError(msg)
+            raise FileNotFoundError()
 
         return subdirhdfs
 
@@ -90,7 +101,7 @@ class BurnScarMap(object):
     # -------------------------------------------------------------------------
     @staticmethod
     def _logicalOrMask(matList):
-        outputMat = np.empty(matList[0].shape)
+        outputMat = np.zeros((BurnScarMap.COLS, BurnScarMap.ROWS))
         for mat in matList:
             outputMat = outputMat + mat
             mat = None
@@ -109,33 +120,15 @@ class BurnScarMap(object):
         return outPath
 
     # -------------------------------------------------------------------------
-    # getBurnScarRasterInfo
-    # -------------------------------------------------------------------------
-    @staticmethod
-    def _getBurnScarRasterInfo(file):
-        ds = gdal.Open(file, gdal.GA_ReadOnly)
-        subd = [sd for sd, _ in ds.GetSubDatasets() if
-                'Burn Date' in sd and 'Uncertainty' not in sd][0]
-        ds = gdal.Open(subd, gdal.GA_ReadOnly)
-        geo = ds.GetGeoTransform()
-        proj = ds.GetProjection()
-        ncols = ds.RasterXSize
-        nrows = ds.RasterYSize
-        ds = None
-        return geo, proj, ncols, nrows
-
-    # -------------------------------------------------------------------------
     # outputBurnScarRaster
     # -------------------------------------------------------------------------
     @staticmethod
-    def _outputBurnScarRaster(outPath, outmat, geo, proj, ncols, nrows,
-                              logger):
+    def _outputBurnScarRaster(outPath, outmat, logger):
         # Output predicted binary raster masked with good-bad mask.
+        ncols, nrows = BurnScarMap.COLS, BurnScarMap.ROWS
         driver = gdal.GetDriverByName('GTiff')
         outDs = driver.Create(outPath, ncols, nrows, 1,
                               gdal.GDT_Byte, options=['COMPRESS=LZW'])
-        outDs.SetGeoTransform(geo)
-        outDs.SetProjection(proj)
         outBand = outDs.GetRasterBand(1)
         outBand.WriteArray(outmat)
         outDs.FlushCache()
