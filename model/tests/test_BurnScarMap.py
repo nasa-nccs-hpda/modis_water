@@ -5,7 +5,6 @@ import tempfile
 import unittest
 
 from modis_water.model.BurnScarMap import BurnScarMap
-from modis_water.model.BurnScarMap import McdNotFoundError
 
 logger = logging.getLogger()
 logger.level = logging.DEBUG
@@ -52,7 +51,7 @@ class BurnScarTestCase(unittest.TestCase):
         streamHandler = logging.StreamHandler(sys.stdout)
         logger.addHandler(streamHandler)
 
-        with self.assertRaises(McdNotFoundError):
+        with self.assertRaises(FileNotFoundError):
             BurnScarMap.generateAnnualBurnScarMap(
                 'MOD', 2020, tile=tile, mcdDir='Test',
                 classifierName='rf', outDir=dummyDir, logger=logger)

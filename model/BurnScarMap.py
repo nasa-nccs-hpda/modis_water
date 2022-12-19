@@ -38,14 +38,14 @@ class BurnScarMap(object):
                 path=mcdDir, year=year, tile=tile)
             burnScarMapList = [BurnScarMap._getMatFromHDF(
                 subdir, 'Burn Date', 'Uncertainty') for subdir in subdirhdfs]
-        except McdNotFoundError as McdException:
+        except FileNotFoundError:
+            msg = 'MCD64A1 not found for {}.'.format(tile)
             if exclusionDays or inclusionDays:
                 if logger:
-                    logger.info('MCD64A1 not found for ' + tile +
-                                '. Using empty burn scar product.')
+                    logger.info(msg + ' Using empty burn scar product.')
                 burnScarMapList = []
             else:
-                raise McdException
+                raise FileNotFoundError(msg)
 
         outputAnnualMask = BurnScarMap._logicalOrMask(burnScarMapList)
         outpath = BurnScarMap._setupBurnScarOutputPath(
@@ -84,7 +84,7 @@ class BurnScarMap(object):
             subdirs = sorted(os.listdir(pathToPrepend))
         except FileNotFoundError:
             msg = 'Could not find dirs in {}'.format(pathToPrepend)
-            raise McdNotFoundError(msg)
+            raise FileNotFoundError(msg)
 
         subdirs = [os.path.join(pathToPrepend, subdir) for subdir in subdirs]
 
@@ -92,7 +92,7 @@ class BurnScarMap(object):
             subdirhdfs = [glob(os.path.join(subdir, '*{}*'.format(tile)))[0]
                           for subdir in subdirs]
         except IndexError:
-            raise McdNotFoundError()
+            raise FileNotFoundError()
 
         return subdirhdfs
 
@@ -137,24 +137,3 @@ class BurnScarMap(object):
         outDs = None
         outBand = None
         driver = None
-
-
-# -------------------------------------------------------------------------
-# McdNotFoundError
-# -------------------------------------------------------------------------
-class McdNotFoundError(Exception):
-    """
-    Custom exception used to only handle an error
-    where the MCD64A1 is not found.
-    """
-
-    def __init__(self, *args: object) -> None:
-        super().__init__(*args)
-        self._message = args[0] if args else None
-
-    def __str__(self):
-        base_str = 'Could not find MCD64A1 files.'
-        if self._message:
-            return f'{base_str} {self._message}'
-        else:
-            return base_str
