@@ -16,7 +16,7 @@ from modis_water.model.SimpleClassifier import SimpleClassifier
 # -----------------------------------------------------------------------------
 # main
 #
-# python modis_water/view/EndToEndModisWaterCLV.py -y 2020 -t h09v05 --classifier rf --startDay 1 --endDay 365 -static /adapt/nobackup/projects/ilab/scratch/mcarrol2/MODIS_water_eval/MODIS_tiles/restore_nodata -dem /adapt/nobackup/projects/ilab/scratch/cssprad1/MODIS_water/data/GMTED/MODIS_tiles -burn /css/modis/Collection6/L3/MCD64A1-BurnArea -o .
+# python modis_water/view/EndToEndModisWaterCLV.py -y 2006 -t h09v05 --classifier rf -static /explore/nobackup/projects/ilab/data/MODIS/ancillary/MODIS_Seven_Class_maxextent -dem /explore/nobackup/projects/ilab/data/MODIS/ancillary/MODIS_GMTED_DEM_slope/ -burn /css/modis/Collection6/L3/MCD64A1-BurnArea -o /explore/nobackup/people/rlgill/SystemTesting/testModisWater2019 -mod /css/modis/Collection6.1/L2G
 # -----------------------------------------------------------------------------
 def main():
 
@@ -31,23 +31,30 @@ def main():
                         choices=['simple', 'rf'],
                         help='Choose which classifier to use')
 
+    parser.add_argument('--sensor',
+                        action='store',
+                        nargs='*',
+                        default=['MOD'],
+                        choices=['MOD', 'MYD'],
+                        help='Choose which sensor to use')
+
     parser.add_argument('--debug',
                         action='store_true',
                         help='show extra output and write intermediate files')
 
-    parser.add_argument('--startDay',
-                        type=int,
-                        default=1,
-                        choices=range(1, 366),
-                        metavar='1-365',
-                        help='the earliest julian day to classify')
-
-    parser.add_argument('--endDay',
-                        type=int,
-                        default=365,
-                        choices=range(1, 366),
-                        metavar='1-365',
-                        help='the latest julian day to classify')
+    # parser.add_argument('--startDay',
+    #                     type=int,
+    #                     default=1,
+    #                     choices=range(1, 367),  # for leap year
+    #                     metavar='1-366',
+    #                     help='the earliest julian day to classify')
+    #
+    # parser.add_argument('--endDay',
+    #                     type=int,
+    #                     default=365,
+    #                     choices=range(1, 367),  # for leap year
+    #                     metavar='1-366',
+    #                     help='the latest julian day to classify')
 
     parser.add_argument('-static',
                         required=True,
@@ -88,14 +95,8 @@ def main():
 
     args = parser.parse_args()
 
-    # Classifier name
-    classifierName = None
-
-    if args.classifier == 'simple':
-        classifierName = SimpleClassifier.CLASSIFIER_NAME
-
-    if args.classifier == 'rf':
-        classifierName = RandomForestClassifier.CLASSIFIER_NAME
+    # Sensor name
+    sensors = set(args.sensor) & br.SENSORS
 
     # Logging
     logger = logging.getLogger()
@@ -107,8 +108,8 @@ def main():
     # ---
     # Validate day range.
     # ---
-    if args.startDay > args.endDay:
-        raise ValueError('The start day must be before the end day.')
+    # if args.startDay > args.endDay:
+    #     raise ValueError('The start day must be before the end day.')
 
     classifier = None
 
@@ -118,10 +119,10 @@ def main():
                                       args.t,
                                       args.o,
                                       args.mod,
-                                      startDay=args.startDay,
-                                      endDay=args.endDay,
+                                      startDay=1,  # args.startDay,
+                                      endDay=366,  #args.endDay,
                                       logger=logger,
-                                      sensors=set([br.MOD]),
+                                      sensors=sensors,
                                       debug=args.debug)
 
     elif args.classifier == 'rf':
@@ -130,10 +131,10 @@ def main():
                                             args.t,
                                             args.o,
                                             args.mod,
-                                            startDay=args.startDay,
-                                            endDay=args.endDay,
+                                            startDay=1,  # args.startDay,
+                                            endDay=366,  # args.endDay,
                                             logger=logger,
-                                            sensors=set([br.MOD]),
+                                            sensors=sensors,
                                             debug=args.debug)
 
     classifier.run()
@@ -142,47 +143,54 @@ def main():
     # Create the annual map.
     # ---
     logger.info('Creating annual map.')
-    annualMapPath = AnnualMap.createAnnualMap(args.o,
-                                              args.y,
-                                              args.t,
-                                              br.MOD,
-                                              classifier.getClassifierName(),
-                                              logger,
-                                              georeferenced=args.georeferenced)
+    for sensor in sensors:
+        annualMapPath = AnnualMap.createAnnualMap(
+            args.o,
+            args.y,
+            args.t,
+            sensor,
+            classifier.getClassifierName(),
+            logger,
+            georeferenced=args.georeferenced)
 
-    # ---
-    # Post processing
-    # ---
-    logger.info('Creating annual burn scar map.')
-    postAnnualBurnScarPath = BurnScarMap.generateAnnualBurnScarMap(
-        args.y,
-        args.t,
-        args.burn,
-        classifier.getClassifierName(),
-        args.o,
-        logger)
+        # ---
+        # Post processing
+        # ---
+        logger.info('Creating annual burn scar map.')
+        postAnnualBurnScarPath = BurnScarMap.generateAnnualBurnScarMap(
+            sensor,
+            args.y,
+            args.t,
+            args.burn,
+            classifier.getClassifierName(),
+            args.o,
+            logger)
 
-    logger.info('Post processing.')
-    postAnnualPath = QAMap.generateQA(args.y,
-                                      args.t,
-                                      args.dem,
-                                      postAnnualBurnScarPath,
-                                      annualMapPath,
-                                      classifier.getClassifierName(),
-                                      args.o,
-                                      logger,
-                                      geoTiff=args.geotiff,
-                                      georeferenced=args.georeferenced)
+        logger.info('Post processing.')
+        postAnnualPath = QAMap.generateQA(
+            sensor,
+            args.y,
+            args.t,
+            args.dem,
+            postAnnualBurnScarPath,
+            annualMapPath,
+            classifier.getClassifierName(),
+            args.o,
+            logger,
+            geoTiff=args.geotiff,
+            georeferenced=args.georeferenced)
 
-    SevenClassMap.generateSevenClass(args.y,
-                                     args.t,
-                                     args.static,
-                                     postAnnualPath,
-                                     classifierName,
-                                     args.o,
-                                     logger,
-                                     geoTiff=args.geotiff,
-                                     georeferenced=args.georeferenced)
+        SevenClassMap.generateSevenClass(
+            sensor,
+            args.y,
+            args.t,
+            args.static,
+            postAnnualPath,
+            classifier.getClassifierName(),
+            args.o,
+            logger,
+            geoTiff=args.geotiff,
+            georeferenced=args.georeferenced)
 
 
 # -----------------------------------------------------------------------------

@@ -27,19 +27,45 @@ class AnnualMap(object):
         sumLand = np.zeros(shape, dtype=np.int16)
         sumBad = np.zeros(shape, dtype=np.int16)
 
-        for day in range(1, 366):
+        inclusionDays = Utils.INCLUSIONS.get(tile[3:])
+        exclusionDays = Utils.EXCLUSIONS.get(tile[3:])
+        
+        if logger:
+        
+            if inclusionDays:
+                
+                logger.info('Found inclusion days for ' + tile + ': ' +
+                            str(inclusionDays.start) + ' - ' + 
+                            str(inclusionDays.end))
+            
+            if exclusionDays:
+                
+                logger.info('Found exclusion days for ' + tile + ': ' +
+                            str(exclusionDays.start) + ' - ' + 
+                            str(exclusionDays.end))
+            
+        for day in range(1, 367):
 
-            sumWater, sumLand, sumBad = \
-                AnnualMap.accumulateDay(dailyDir,
-                                        year,
-                                        day,
-                                        tile,
-                                        sensor,
-                                        classifierName,
-                                        sumWater,
-                                        sumLand,
-                                        sumBad,
-                                        logger)
+            if (not inclusionDays and not exclusionDays) or \
+                (inclusionDays and \
+                 day >= inclusionDays.start and day <= inclusionDays.end) or \
+                (exclusionDays and \
+                 (day < exclusionDays.start or day > exclusionDays.end)):
+            
+                sumWater, sumLand, sumBad = \
+                    AnnualMap.accumulateDay(dailyDir,
+                                            year,
+                                            day,
+                                            tile,
+                                            sensor,
+                                            classifierName,
+                                            sumWater,
+                                            sumLand,
+                                            sumBad,
+                                            logger)
+            else:
+                if logger:
+                    logger.info('Excluding day ' + str(day))
 
         sumObs = sumWater + sumLand + sumBad
 

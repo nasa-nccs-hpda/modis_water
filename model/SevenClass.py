@@ -15,84 +15,101 @@ class SevenClassMap(object):
 
     TIF_BASE_NAME = 'Master_7class_maxextent_'
     DTYPE = np.uint8
+    NODATA = 253
 
     # -------------------------------------------------------------------------
     # generateSevenClass
     # -------------------------------------------------------------------------
     @staticmethod
-    def generateSevenClass(year,
-                           tile,
-                           staticSevenClassDir,
-                           annualProductPath,
-                           classifierName,
-                           outDir,
-                           logger,
-                           geoTiff=False,
-                           georeferenced=False):
-
-        # Search and read in annual product and static seven-class.
-        staticSevenPath = SevenClassMap._getStaticSevenClassPath(
-            staticSevenClassDir, tile)
-        staticSevenDataset = gdal.Open(staticSevenPath)
-        staticSevenArray = staticSevenDataset.GetRasterBand(1).ReadAsArray()
+    def generateSevenClass(
+            sensor,
+            year,
+            tile,
+            staticSevenClassDir,
+            annualProductPath,
+            classifierName,
+            outDir,
+            logger,
+            geoTiff=False,
+            georeferenced=False):
 
         annualProductDataset = gdal.Open(annualProductPath)
         annualProductArray = annualProductDataset.GetRasterBand(
             1).ReadAsArray()
-
-        outputSevenClassArray = np.zeros((BandReader.COLS, BandReader.ROWS))
-
-        restArray = annualProductArray.copy()
-
-        # Perform checks.
-        outputSevenClassArray = np.where(
-            annualProductArray == 0, 1, outputSevenClassArray)
-
-        restArray = np.where(annualProductArray == 0, 0, restArray)
-
-        annualEqualsOne = (annualProductArray == 1)
-
-        deepInland = np.logical_and(annualEqualsOne, staticSevenArray == 5)
-
-        outputSevenClassArray = np.where(deepInland, 5, outputSevenClassArray)
-
-        restArray = np.where(deepInland, 0, restArray)
-
-        shallowOcean = np.logical_and(annualEqualsOne, staticSevenArray == 0)
-
-        outputSevenClassArray = np.where(shallowOcean, 0,
-                                         outputSevenClassArray)
-
-        restArray = np.where(shallowOcean, 0, restArray)
-
-        moderateOcean = np.logical_and(annualEqualsOne, staticSevenArray == 6)
-
-        outputSevenClassArray = np.where(moderateOcean, 6,
-                                         outputSevenClassArray)
-
-        restArray = np.where(moderateOcean, 0, restArray)
-
-        deepOcean = np.logical_and(annualEqualsOne, staticSevenArray == 7)
-
-        outputSevenClassArray = np.where(deepOcean, 7, outputSevenClassArray)
-
-        restArray = np.where(deepOcean, 0, restArray)
-
-        outputSevenClassArray = np.where(restArray == 1, 3,
-                                         outputSevenClassArray)
-
-        shoreLine = SevenClassMap._generateShoreline(outputSevenClassArray)
-
-        outputSevenClassArray = np.where(shoreLine == 1, 2,
-                                         outputSevenClassArray)
-
         transform = annualProductDataset.GetGeoTransform() \
             if georeferenced else None
         projection = annualProductDataset.GetProjection() \
             if georeferenced else None
 
+        outputSevenClassArray = np.zeros((BandReader.COLS, BandReader.ROWS))
+
+        exclusionDays = Utils.EXCLUSIONS.get(tile[3:])
+
+        if exclusionDays:
+
+            if logger:
+                msg = 'Antarctic tiles have no seven class. Filling nodata.'
+                logger.info(msg)
+            outputSevenClassArray.fill(SevenClassMap.NODATA)
+
+        else:
+            # Search and read in annual product and static seven-class.
+            staticSevenPath = SevenClassMap._getStaticSevenClassPath(
+                staticSevenClassDir, tile)
+            staticSevenDataset = gdal.Open(staticSevenPath)
+            staticSevenArray = staticSevenDataset.GetRasterBand(1).ReadAsArray()
+
+            restArray = annualProductArray.copy()
+
+            # Perform checks.
+            outputSevenClassArray = np.where(
+                annualProductArray == 0, 1, outputSevenClassArray)
+
+            restArray = np.where(annualProductArray == 0, 0, restArray)
+
+            annualEqualsOne = (annualProductArray == 1)
+
+            deepInland = np.logical_and(annualEqualsOne, staticSevenArray == 5)
+
+            outputSevenClassArray = np.where(
+                deepInland, 5, outputSevenClassArray)
+
+            restArray = np.where(deepInland, 0, restArray)
+
+            shallowOcean = np.logical_and(
+                annualEqualsOne, staticSevenArray == 0)
+
+            outputSevenClassArray = np.where(shallowOcean, 0,
+                                             outputSevenClassArray)
+
+            restArray = np.where(shallowOcean, 0, restArray)
+
+            moderateOcean = np.logical_and(
+                annualEqualsOne, staticSevenArray == 6)
+
+            outputSevenClassArray = np.where(moderateOcean, 6,
+                                             outputSevenClassArray)
+
+            restArray = np.where(moderateOcean, 0, restArray)
+
+            deepOcean = np.logical_and(annualEqualsOne, staticSevenArray == 7)
+
+            outputSevenClassArray = np.where(
+                deepOcean, 7, outputSevenClassArray)
+
+            restArray = np.where(deepOcean, 0, restArray)
+
+            outputSevenClassArray = np.where(restArray == 1, 3,
+                                             outputSevenClassArray)
+
+            shoreLine = SevenClassMap._generateShoreline(outputSevenClassArray)
+
+            outputSevenClassArray = np.where(shoreLine == 1, 2,
+                                             outputSevenClassArray)
+
         # Write out the seven-class.
-        outputSevenClassName = 'MOD44W.A{}.{}.{}.AnnualSevenClass.{}'.format(
+        outputSevenClassName = '{}44W.A{}.{}.{}.AnnualSevenClass.{}'.format(
+            sensor,
             year,
             tile,
             classifierName,
