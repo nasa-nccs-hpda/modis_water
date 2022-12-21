@@ -15,7 +15,7 @@ class SevenClassMap(object):
 
     TIF_BASE_NAME = 'Master_7class_maxextent_'
     DTYPE = np.uint8
-    NODATA = 253
+    NODATA = 250
 
     # -------------------------------------------------------------------------
     # generateSevenClass
@@ -43,9 +43,9 @@ class SevenClassMap(object):
 
         outputSevenClassArray = np.zeros((BandReader.COLS, BandReader.ROWS))
 
-        exclusionDays = Utils.EXCLUSIONS.get(tile[3:])
+        exclusionTile = tile[3:] in Utils.QA_ANTARCTIC_EXCLUSION
 
-        if exclusionDays:
+        if exclusionTile:
 
             if logger:
                 msg = 'Antarctic tiles have no seven class. Filling nodata.'
@@ -57,7 +57,8 @@ class SevenClassMap(object):
             staticSevenPath = SevenClassMap._getStaticSevenClassPath(
                 staticSevenClassDir, tile)
             staticSevenDataset = gdal.Open(staticSevenPath)
-            staticSevenArray = staticSevenDataset.GetRasterBand(1).ReadAsArray()
+            staticSevenArray = \
+                staticSevenDataset.GetRasterBand(1).ReadAsArray()
 
             restArray = annualProductArray.copy()
 
