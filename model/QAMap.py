@@ -92,7 +92,7 @@ class QAMap(object):
     # -------------------------------------------------------------------------
     @staticmethod
     def _getGMTEDArray(tile, demDir):
-        exclusionDays = Utils.EXCLUSIONS.get(tile[3:])
+        exclusionTile = tile[3:] in Utils.QA_ANTARCTIC_EXCLUSION
         try:
             demSearchTerm = 'GMTED.{}.slope.tif'.format(tile)
             demSlopeDatasetPath = QAMap._getStaticDatasetPath(
@@ -101,7 +101,7 @@ class QAMap(object):
             demSlopeDataArray = demSlopeDataset.GetRasterBand(
                 1).ReadAsArray()
         except FileNotFoundError as initialException:
-            if exclusionDays:
+            if exclusionTile:
                 demSlopeDataArray = np.zeros(
                     (BandReader.COLS, BandReader.ROWS),
                     dtype=QAMap.DTYPE)

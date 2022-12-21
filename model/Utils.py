@@ -17,11 +17,13 @@ class Utils(object):
                   'v01': DayRange(161, 256),
                   'v02': DayRange(145, 288),
                   'v03': DayRange(129, 304)}
-                  
+
     EXCLUSIONS = {'v17': DayRange(177, 256),
                   'v16': DayRange(161, 256),
                   'v15': DayRange(145, 288),
                   'v14': DayRange(129, 304)}
+
+    QA_ANTARCTIC_EXCLUSION = ['v17', 'v16', 'v15']
 
     # -------------------------------------------------------------------------
     # getImageName
