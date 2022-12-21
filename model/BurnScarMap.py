@@ -14,6 +14,7 @@ class BurnScarMap(object):
     DTYPE = np.uint8
     COLS = 2400
     ROWS = 2400
+    EXCLUSION_TILES = ['v00', 'v01', 'v14', 'v15', 'v16', 'v17']
 
     # -------------------------------------------------------------------------
     # generateAnnualBurnScarMap
@@ -30,8 +31,7 @@ class BurnScarMap(object):
 
         # Test to see if tile in list of tiles which do not
         # need a burn scar product.
-        inclusionDays = Utils.INCLUSIONS.get(tile[3:])
-        exclusionDays = Utils.EXCLUSIONS.get(tile[3:])
+        exclusionTile = tile[3:] in BurnScarMap.EXCLUSION_TILES
 
         try:
             subdirhdfs = BurnScarMap._getAllFiles(
@@ -40,7 +40,7 @@ class BurnScarMap(object):
                 subdir, 'Burn Date', 'Uncertainty') for subdir in subdirhdfs]
         except FileNotFoundError:
             msg = 'MCD64A1 not found for {}.'.format(tile)
-            if exclusionDays or inclusionDays:
+            if exclusionTile:
                 if logger:
                     logger.info(msg + ' Using empty burn scar product.')
                 burnScarMapList = []
