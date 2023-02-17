@@ -1,5 +1,4 @@
 #!/usr/bin/python
-
 import argparse
 import logging
 import sys
@@ -16,10 +15,15 @@ from modis_water.model.SimpleClassifier import SimpleClassifier
 # -----------------------------------------------------------------------------
 # main
 #
-# python modis_water/view/EndToEndModisWaterCLV.py -y 2006 -t h09v05 --classifier rf -static /explore/nobackup/projects/ilab/data/MODIS/ancillary/MODIS_Seven_Class_maxextent -dem /explore/nobackup/projects/ilab/data/MODIS/ancillary/MODIS_GMTED_DEM_slope/ -burn /css/modis/Collection6/L3/MCD64A1-BurnArea -o /explore/nobackup/people/rlgill/SystemTesting/testModisWater2019 -mod /css/modis/Collection6.1/L2G
+# python modis_water/view/EndToEndModisWaterCLV.py -y 2006 -t h09v05 \
+#   --classifier rf \
+#   -static /explore/nobackup/projects/ilab/data/MODIS/ancillary/MODIS_Seven_Class_maxextent \
+#   -dem /explore/nobackup/projects/ilab/data/MODIS/ancillary/MODIS_GMTED_DEM_slope/ \
+#   -burn /css/modis/Collection6/L3/MCD64A1-BurnArea \
+#   -o . \
+#   -mod /css/modis/Collection6.1/L2G
 # -----------------------------------------------------------------------------
 def main():
-
     # Process command-line args.
     desc = 'Use this application to run and post-process annual MODIS water.'
 
@@ -63,6 +67,14 @@ def main():
     parser.add_argument('-dem',
                         required=True,
                         help='Path to GMTED DEM')
+
+    parser.add_argument('-impervious',
+                        required=True,
+                        help='Path to impervious surface dir')
+
+    parser.add_argument('-ancillary',
+                        required=True,
+                        help='Path to static ancillary dataset dir')
 
     parser.add_argument('-mod',
                         required=True,
@@ -120,7 +132,7 @@ def main():
                                       args.o,
                                       args.mod,
                                       startDay=1,  # args.startDay,
-                                      endDay=366,  #args.endDay,
+                                      endDay=366,  # args.endDay,
                                       logger=logger,
                                       sensors=sensors,
                                       debug=args.debug)
@@ -173,6 +185,8 @@ def main():
             args.t,
             args.dem,
             postAnnualBurnScarPath,
+            args.ancillary,
+            args.impervious,
             annualMapPath,
             classifier.getClassifierName(),
             args.o,

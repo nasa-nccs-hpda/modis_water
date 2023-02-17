@@ -1,6 +1,7 @@
 from collections import namedtuple
 import datetime
 import os
+import glob
 
 from osgeo import gdal
 
@@ -78,3 +79,18 @@ class Utils(object):
         jdate = sdtdate.tm_yday
         post_str = '{}{:03}{}'.format(year, jdate, hm)
         return post_str
+
+    # -------------------------------------------------------------------------
+    # getStaticDatasetPath
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def getStaticDatasetPath(inDir, searchTerm) -> str:
+        searchPath = os.path.join(
+            inDir, searchTerm)
+        staticPath = glob.glob(searchPath)
+        if len(staticPath) > 0:
+            staticPath = staticPath[0]
+            return staticPath
+        else:
+            msg = '{} not found.'.format(searchPath)
+            raise FileNotFoundError(msg)
