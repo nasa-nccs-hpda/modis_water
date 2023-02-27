@@ -1,6 +1,7 @@
 #!/usr/bin/python
 import argparse
 import logging
+import os
 import sys
 
 from modis_water.model.AnnualMap import AnnualMap
@@ -115,7 +116,16 @@ def main():
     logger.setLevel(logging.INFO)
     ch = logging.StreamHandler(sys.stdout)
     ch.setLevel(logging.INFO)
+    formatter = logging.Formatter(
+        "%(asctime)s; %(levelname)s; %(message)s", "%Y-%m-%d %H:%M:%S"
+    )
+    ch.setFormatter(formatter)
+    logFileName = f'{args.y}.{args.t}.{args.classifier}{sensors}.log'
+    fh = logging.FileHandler(os.path.join(args.o, logFileName))
+    fh.setLevel(logging.INFO)
+    fh.setFormatter(formatter)
     logger.addHandler(ch)
+    logger.addHandler(fh)
 
     # ---
     # Validate day range.

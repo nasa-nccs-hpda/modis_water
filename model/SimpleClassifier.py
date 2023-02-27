@@ -36,44 +36,49 @@ class SimpleClassifier(Classifier):
     def _runOneSensorOneDay(self, bandDict, outName):
 
         # Name the arrays as named in water_change.c
-        red = bandDict[br.SR1]
         nir = bandDict[br.SR2]
         blue = bandDict[br.SR3]
-        green = bandDict[br.SR4]
         swir5 = bandDict[br.SR5]
-        swir6 = bandDict[br.SR6]
         swir7 = bandDict[br.SR7]
 
+        # ---
         # Add NDVI to bandDict.
+        # NDVI is normally calculated with range -1,1. This multiplies
+        # that range by 10,000 making it an integer-friendly range.
+        # The NDVI conditions listed in water_change.c are multiplied
+        # by 10,000 to match the range of the computed NDVI.
+        # ---
         ndvi = self.computeNdvi(bandDict[br.SR1], bandDict[br.SR2])
+        ndviBadCalculation = (bandDict[br.SR1] + bandDict[br.SR2]) == 0
 
         # ---
         # Define the rules as masks.
         # ---
-        subcondition1 = (swir5 >= 453) & (blue < 675) & (nir > 100)
+        subcondition1 = (swir5 >= 453) & (blue < 675) & (nir > 1000)
         land1 = (swir5 < 1017) & (swir7 < 773) & subcondition1
         water1 = (swir5 < 1017) & (swir7 < 773) & ~subcondition1
 
-        water2 = (swir5 >= 1017) & (nir < 1777) & (ndvi < 0.0825) & \
+        water2 = (swir5 >= 1017) & (nir < 1777) & (ndvi < 825) & \
                  (blue < 651)
 
-        land2 = (swir5 >= 1017) & (nir < 1777) & (ndvi < 0.0825) & \
+        land2 = (swir5 >= 1017) & (nir < 1777) & (ndvi < 825) & \
             (blue >= 651)
 
-        land3 = (swir5 >= 1017) & (nir < 1777) & (ndvi >= 0.0825) & \
-                (ndvi < 0.4125) & (nir >= 1329) & (swir7 < 1950)
+        land3 = (swir5 >= 1017) & (nir < 1777) & (ndvi >= 825) & \
+                (ndvi < 4125) & (nir >= 1329) & (swir7 < 1950)
 
-        land4 = (swir5 >= 1017) & (nir < 1777) & (ndvi >= 0.0825) & \
-                (ndvi >= 0.4125)
+        land4 = (swir5 >= 1017) & (nir < 1777) & (ndvi >= 825) & \
+                (ndvi >= 4125)
 
         land5 = (swir5 >= 1017) & (nir >= 1777)
 
         waterConditions = water1 | water2
-        landConditions = land1 | land2 | land3 | land4
+        landConditions = land1 | land2 | land3 | land4 | land5
 
         # Apply the model.
         predictions = np.full((br.COLS, br.ROWS), Classifier.NO_DATA)
-        predictions[waterConditions] = Classifier.WATER  # 3
-        predictions[landConditions] = Classifier.LAND    # 1
+        predictions[waterConditions] = Classifier.WATER  # 1
+        predictions[landConditions] = Classifier.LAND    # 0
+        predictions = np.where(ndviBadCalculation, Classifier.NO_DATA)
 
         return predictions

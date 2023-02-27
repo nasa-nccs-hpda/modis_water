@@ -28,8 +28,8 @@ Legend=
 ANCILLARY MASK LEGEND
 
 Legend=
-    0: not land
-    1: definitely land
+    0: possible water (max extent)
+    1: land
     2: ocean
     10: outside projection
 """
@@ -40,7 +40,7 @@ Legend=
 # -------------------------------------------------------------------------
 class QAMap(object):
 
-    DTYPE = np.uint8
+    DTYPE: np.dtype = np.uint8
     NCOLS: int = 4800
     NROWS: int = 4800
 
@@ -190,6 +190,7 @@ class QAMap(object):
         low_confidence_land = (
             (annualProductArray == QAMap.ANNUAL_LAND) &
             (totalLand < 6) &
+            (ancillaryDataArray != QAMap.QA_DEM_SLOPE) &
             (ancillaryDataArray != QAMap.ANCILLARY_OCEAN) &
             (ancillaryDataArray != QAMap.ANCILLARY_FILL_VALUE) &
             (annualProductOutput != QAMap.ANNUAL_WATER) &

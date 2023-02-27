@@ -117,12 +117,8 @@ class Classifier(object):
     def computeNdvi(self, sr1, sr2):
 
         # return ((sr2 - sr1) / (sr2 + sr1)) * 10000
-
-        ndvi = \
-            np.where(sr1 + sr2 != 0,
-                     ((sr2 - sr1) / (sr2 + sr1) * 10000).astype(np.int16),
-                     0)
-
+        ndvi_unfiltered = ((sr2 - sr1) / (sr2 + sr1) * 10000).astype(np.int16)
+        ndvi = np.where(sr1 + sr2 != 0, ndvi_unfiltered, 0)
         return ndvi
 
     # -------------------------------------------------------------------------
@@ -135,7 +131,8 @@ class Classifier(object):
         # 79-character lines and using line continuations will make this mess
         # of quotes even trickier.
         # ---
-        MODIS_SINUSOIDAL_6842 = SpatialReference('PROJCS["Sinusoidal",GEOGCS["GCS_Undefined",DATUM["Undefined",SPHEROID["User_Defined_Spheroid",6371007.181,0.0]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Sinusoidal"],PARAMETER["False_Easting",0.0],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",0.0],UNIT["Meter",1.0]]')
+        MODIS_SINUSOIDAL_6842 = SpatialReference(
+            'PROJCS["Sinusoidal",GEOGCS["GCS_Undefined",DATUM["Undefined",SPHEROID["User_Defined_Spheroid",6371007.181,0.0]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Sinusoidal"],PARAMETER["False_Easting",0.0],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",0.0],UNIT["Meter",1.0]]')
 
         driver = gdal.GetDriverByName('GTiff')
 
@@ -270,7 +267,7 @@ class Classifier(object):
                         if len(bandDict) > 0:
 
                             self._maskClassifyWrite(bandDict, outName)
-                                
+
                         elif self._logger:
 
                             self._logger.info('No matching HDFs found.')
@@ -282,16 +279,16 @@ class Classifier(object):
                             self._logger.info('Output file, ' + outName +
                                               ', already exists.')
 
-                except Exception as e:
+                except Exception:
 
                     if self._logger:
 
                         self._logger.info(None, exc_info=True)
-                        
+
                         msg = 'Sensor ' + str(sensor) + \
                               ', day ' + str(day) + \
                               ' skipped due to a run-time error.'
-                              
+
                         self._logger.info(msg)
 
                     # raise e
