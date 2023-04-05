@@ -29,29 +29,29 @@ class AnnualMap(object):
 
         inclusionDays = Utils.INCLUSIONS.get(tile[3:])
         exclusionDays = Utils.EXCLUSIONS.get(tile[3:])
-        
+
         if logger:
-        
+
             if inclusionDays:
-                
+
                 logger.info('Found inclusion days for ' + tile + ': ' +
-                            str(inclusionDays.start) + ' - ' + 
+                            str(inclusionDays.start) + ' - ' +
                             str(inclusionDays.end))
-            
+
             if exclusionDays:
-                
+
                 logger.info('Found exclusion days for ' + tile + ': ' +
-                            str(exclusionDays.start) + ' - ' + 
+                            str(exclusionDays.start) + ' - ' +
                             str(exclusionDays.end))
-            
+
         for day in range(1, 367):
 
             if (not inclusionDays and not exclusionDays) or \
-                (inclusionDays and \
+                (inclusionDays and
                  day >= inclusionDays.start and day <= inclusionDays.end) or \
-                (exclusionDays and \
+                (exclusionDays and
                  (day < exclusionDays.start or day > exclusionDays.end)):
-            
+
                 sumWater, sumLand, sumBad = \
                     AnnualMap.accumulateDay(dailyDir,
                                             year,
@@ -161,7 +161,7 @@ class AnnualMap(object):
         except IndexError:
             msg = 'Could not find any daily files: {}'.format(imageName)
             raise RuntimeError(msg)
-        ds = GeospatialImageFile(oneDailyFile)._getDataset()
+        ds = GeospatialImageFile(oneDailyFile).getDataset()
         transform = ds.GetGeoTransform()
         projection = ds.GetProjection()
         return projection, transform

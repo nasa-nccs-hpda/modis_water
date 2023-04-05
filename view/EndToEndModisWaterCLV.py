@@ -1,7 +1,7 @@
 #!/usr/bin/python
-
 import argparse
 import logging
+import os
 import sys
 
 from modis_water.model.AnnualMap import AnnualMap
@@ -16,10 +16,15 @@ from modis_water.model.SimpleClassifier import SimpleClassifier
 # -----------------------------------------------------------------------------
 # main
 #
-# python modis_water/view/EndToEndModisWaterCLV.py -y 2006 -t h09v05 --classifier rf -static /explore/nobackup/projects/ilab/data/MODIS/ancillary/MODIS_Seven_Class_maxextent -dem /explore/nobackup/projects/ilab/data/MODIS/ancillary/MODIS_GMTED_DEM_slope/ -burn /css/modis/Collection6/L3/MCD64A1-BurnArea -o /explore/nobackup/people/rlgill/SystemTesting/testModisWater2019 -mod /css/modis/Collection6.1/L2G
+# python modis_water/view/EndToEndModisWaterCLV.py -y 2006 -t h09v05 \
+#   --classifier rf \
+#   -static /explore/nobackup/projects/ilab/data/MODIS/ancillary/MODIS_Seven_Class_maxextent \
+#   -dem /explore/nobackup/projects/ilab/data/MODIS/ancillary/MODIS_GMTED_DEM_slope/ \
+#   -burn /css/modis/Collection6/L3/MCD64A1-BurnArea \
+#   -o . \
+#   -mod /css/modis/Collection6.1/L2G
 # -----------------------------------------------------------------------------
 def main():
-
     # Process command-line args.
     desc = 'Use this application to run and post-process annual MODIS water.'
 
@@ -56,13 +61,9 @@ def main():
     #                     metavar='1-366',
     #                     help='the latest julian day to classify')
 
-    parser.add_argument('-static',
+    parser.add_argument('-postprocessing',
                         required=True,
-                        help='Path to static MODIS 250m 7-class product')
-
-    parser.add_argument('-dem',
-                        required=True,
-                        help='Path to GMTED DEM')
+                        help='Path to post processing mask')
 
     parser.add_argument('-mod',
                         required=True,
@@ -103,7 +104,16 @@ def main():
     logger.setLevel(logging.INFO)
     ch = logging.StreamHandler(sys.stdout)
     ch.setLevel(logging.INFO)
+    formatter = logging.Formatter(
+        "%(asctime)s; %(levelname)s; %(message)s", "%Y-%m-%d %H:%M:%S"
+    )
+    ch.setFormatter(formatter)
+    logFileName = f'{args.y}.{args.t}.{args.classifier}{sensors}.log'
+    fh = logging.FileHandler(os.path.join(args.o, logFileName))
+    fh.setLevel(logging.INFO)
+    fh.setFormatter(formatter)
     logger.addHandler(ch)
+    logger.addHandler(fh)
 
     # ---
     # Validate day range.
@@ -120,7 +130,7 @@ def main():
                                       args.o,
                                       args.mod,
                                       startDay=1,  # args.startDay,
-                                      endDay=366,  #args.endDay,
+                                      endDay=366,  # args.endDay,
                                       logger=logger,
                                       sensors=sensors,
                                       debug=args.debug)
@@ -171,8 +181,8 @@ def main():
             sensor,
             args.y,
             args.t,
-            args.dem,
             postAnnualBurnScarPath,
+            args.postprocessing,
             annualMapPath,
             classifier.getClassifierName(),
             args.o,
@@ -184,7 +194,7 @@ def main():
             sensor,
             args.y,
             args.t,
-            args.static,
+            args.postprocessing,
             postAnnualPath,
             classifier.getClassifierName(),
             args.o,
