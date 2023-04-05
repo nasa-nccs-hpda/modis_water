@@ -79,6 +79,8 @@ class SimpleClassifier(Classifier):
         predictions = np.full((br.COLS, br.ROWS), Classifier.NO_DATA)
         predictions[waterConditions] = Classifier.WATER  # 1
         predictions[landConditions] = Classifier.LAND    # 0
-        predictions = np.where(ndviBadCalculation, Classifier.NO_DATA)
+        predictions = np.where(ndviBadCalculation,
+                               Classifier.NO_DATA,
+                               predictions)
 
         return predictions

@@ -74,7 +74,6 @@ class BurnScarMap(object):
         del ds
         return burnScarMask
 
-    """
     # -------------------------------------------------------------------------
     # getAllFiles
     # -------------------------------------------------------------------------
@@ -95,18 +94,6 @@ class BurnScarMap(object):
         except IndexError:
             raise FileNotFoundError()
 
-        return subdirhdfs
-    """
-    @staticmethod
-    def _getAllFiles(path, year, tile):
-        pathToPrepend = os.path.join(path, str(year))
-        subdirhdfs = []
-        try:
-            subdirhdfs = sorted(
-                glob(os.path.join(pathToPrepend, 'MCD64A1*{}*.hdf'.format(tile))))
-        except FileNotFoundError:
-            msg = 'Could not find dirs in {}'.format(pathToPrepend)
-            raise FileNotFoundError(msg)
         return subdirhdfs
 
     # -------------------------------------------------------------------------

@@ -61,21 +61,9 @@ def main():
     #                     metavar='1-366',
     #                     help='the latest julian day to classify')
 
-    parser.add_argument('-static',
+    parser.add_argument('-postprocessing',
                         required=True,
-                        help='Path to static MODIS 250m 7-class product')
-
-    parser.add_argument('-dem',
-                        required=True,
-                        help='Path to GMTED DEM')
-
-    parser.add_argument('-impervious',
-                        required=True,
-                        help='Path to impervious surface dir')
-
-    parser.add_argument('-ancillary',
-                        required=True,
-                        help='Path to static ancillary dataset dir')
+                        help='Path to post processing mask')
 
     parser.add_argument('-mod',
                         required=True,
@@ -193,10 +181,8 @@ def main():
             sensor,
             args.y,
             args.t,
-            args.dem,
             postAnnualBurnScarPath,
-            args.ancillary,
-            args.impervious,
+            args.postprocessing,
             annualMapPath,
             classifier.getClassifierName(),
             args.o,
@@ -208,7 +194,7 @@ def main():
             sensor,
             args.y,
             args.t,
-            args.static,
+            args.postprocessing,
             postAnnualPath,
             classifier.getClassifierName(),
             args.o,

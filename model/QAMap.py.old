@@ -7,6 +7,7 @@ import numpy as np
 
 from modis_water.model.BandReader import BandReader
 from modis_water.model.Utils import Utils
+from modis_water.model.PostProcessingGenerator import PostProcessingMap
 
 
 """
@@ -45,10 +46,12 @@ class QAMap(object):
 
     ANNUAL_WATER: int = 1
     ANNUAL_LAND: int = 0
-    ANNUAL_OUT_OF_PROJECTION: int = 250
+    ANNUAL_OUT_OF_PROJECTION: int = 255
     ANCILLARY_WATER: int = 0
     ANCILLARY_LAND: int = 1
     ANCILLARY_OCEAN: int = 2
+    ANCILLARY_NODATA: int = 10
+    ANCILLARY_FILL_VALUE: int = 3
     PERMANENT_WATER_WATER: int = 1
 
     QA_HIGH_CONFIDENCE: int = 1
@@ -62,7 +65,7 @@ class QAMap(object):
     QA_NO_DATA: int = 10
 
     BURN_SCAR: int = 1
-    IMPERVIOUS_SURFACE: int = 1
+
     DEM_SLOPE: int = 1
 
     ANCILLARY_PRE_STR: str = 'Dyn_Water_Ancillary_'
@@ -72,35 +75,6 @@ class QAMap(object):
     PROBABILITY_WATER_POST_STR: str = 'ProbWater'
     PERMANENT_WATER_PRE_STR: str = 'Water.'
     PERMANENT_WATER_POST_STR: str = '.tif'
-
-    # Impervious Mask
-    IMPERVIOUS_BIT_MASK: int = 1
-
-    # Permanent Water Mask
-    PERMANENT_BIT_MASK: int = 2
-
-    # GMTED Slope Mask
-    GMTED_BIT_MASK: int = 4
-
-    # Ancillary Mask
-    ANC_LAND_BIT_MASK: int = 8  # 0b1000
-    ANC_WATER_BIT_MASK: int = 16  # 0b10000
-    ANC_OCEAN_BIT_MASK: int = 32  # 0b100000
-    ANC_NODATA_BIT_MASK: int = 64  # 0b1000000
-
-    ANC_LAND_VALUE: int = 0
-    ANC_WATER_VALUE: int = 1
-    ANC_OCEAN_VALUE: int = 2
-    ANC_NODATA_VALUE: int = 10
-
-    ANCILLARY_BIT_MASK_DICT: dict = {
-        ANC_LAND_VALUE: ANC_LAND_BIT_MASK,
-        ANC_WATER_VALUE: ANC_WATER_BIT_MASK,
-        ANC_OCEAN_VALUE: ANC_OCEAN_BIT_MASK,
-        ANC_NODATA_VALUE: ANC_NODATA_BIT_MASK
-    }
-
-    OOP_BIT_MASK: int = 32768  # 0b1000000000000000
 
     # -------------------------------------------------------------------------
     # generateSevenClass
@@ -125,15 +99,15 @@ class QAMap(object):
 
         demSlopeDataArray = QAMap._extractPackedBitBinaryArray(
             postProcessingArray,
-            QAMap.GMTED_BIT_MASK)
+            PostProcessingMap.GMTED_BIT_MASK)
 
         imperviousDataArray = QAMap._extractPackedBitBinaryArray(
             postProcessingArray,
-            QAMap.IMPERVIOUS_BIT_MASK)
+            PostProcessingMap.IMPERVIOUS_BIT_MASK)
 
         permanentWaterArray = QAMap._extractPackedBitBinaryArray(
             postProcessingArray,
-            QAMap.PERMANENT_BIT_MASK)
+            PostProcessingMap.PERMANENT_BIT_MASK)
 
         ancillaryDataArray = \
             QAMap._extractAncillaryArray(postProcessingArray)
@@ -231,6 +205,7 @@ class QAMap(object):
             (totalLand < 6) &
             (ancillaryDataArray != QAMap.QA_DEM_SLOPE) &
             (ancillaryDataArray != QAMap.ANCILLARY_OCEAN) &
+            (ancillaryDataArray != QAMap.ANCILLARY_FILL_VALUE) &
             (annualProductOutput != QAMap.ANNUAL_WATER) &
             (qaOutput != QAMap.QA_BURN_SCAR))
         qaOutput = np.where(low_confidence_land,
@@ -245,16 +220,16 @@ class QAMap(object):
             annualProductOutput)
 
         # QA map case 7, MODIS_water_algorithm_MODIS_v2 1.d.v.5-6
-        impervious_case = ((imperviousDataArray == QAMap.IMPERVIOUS_SURFACE) &
-                           (annualProductOutput == QAMap.ANNUAL_WATER) &
-                           (ancillaryDataArray == QAMap.ANCILLARY_WATER))
-        qaOutput = np.where(impervious_case, QAMap.QA_IMPERVIOUS, qaOutput)
+        impervious_case = ((imperviousDataArray == 1) &
+                           (annualProductOutput == 1) &
+                           (ancillaryDataArray == 0))
+        qaOutput = np.where(impervious_case, 7, qaOutput)
         annualProductOutput = np.where(impervious_case, 0, annualProductOutput)
 
         # QA map case 10, MODIS_water_algorithm_MODIS_v2 1.d.vi.1-2
         out_of_projection = (postProcessingArray &
-                             QAMap.OOP_BIT_MASK) \
-            == QAMap.OOP_BIT_MASK
+                             PostProcessingMap.OOP_BIT_MASK) \
+            == PostProcessingMap.OOP_BIT_MASK
         annualProductOutput = np.where(
             out_of_projection,
             QAMap.ANNUAL_OUT_OF_PROJECTION,
@@ -309,11 +284,21 @@ class QAMap(object):
         return postProcessingDataArray
 
     # -------------------------------------------------------------------------
+    # _getGMTEDArray
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _extractGMTEDArray(postProcessingMask: np.ndarray) -> np.ndarray:
+        gmtedBitMask = PostProcessingMap.GMTED_BIT_MASK
+        demBinaryArray = np.where((postProcessingMask &
+                                   gmtedBitMask) == gmtedBitMask, 1, 0)
+        return demBinaryArray.astype(QAMap.DTYPE)
+
+    # -------------------------------------------------------------------------
     # _extractAncillaryArray
     # -------------------------------------------------------------------------
     @staticmethod
     def _extractAncillaryArray(postProcessingMask: np.ndarray) -> np.ndarray:
-        ancillaryBitMaskDict = QAMap.ANCILLARY_BIT_MASK_DICT
+        ancillaryBitMaskDict = PostProcessingMap.ANCILLARY_BIT_MASK_DICT
         ancillaryDataArray = np.zeros(
             (BandReader.COLS, BandReader.ROWS), dtype=QAMap.DTYPE)
         for ancillaryValue in ancillaryBitMaskDict.keys():
@@ -322,6 +307,30 @@ class QAMap(object):
             ancillaryDataArray = np.where(condition, ancillaryValue,
                                           ancillaryDataArray)
         return ancillaryDataArray
+
+    # -------------------------------------------------------------------------
+    # _extractPermanentWaterArray
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _extractPermanentWaterArray(postProcessingMask: np.ndarray) -> \
+            np.ndarray:
+        permanentWaterBitMask = PostProcessingMap.PERMANENT_BIT_MASK
+        permanentWaterArray = np.where((postProcessingMask &
+                                        permanentWaterBitMask) ==
+                                       permanentWaterBitMask, 1, 0)
+        return permanentWaterArray.astype(QAMap.DTYPE)
+
+    # -------------------------------------------------------------------------
+    # _extractPackedBitBinaryArray
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def _extractImperviousArray(postProcessingMask: np.ndarray) -> \
+            np.ndarray:
+        imperviousBitMask = PostProcessingMap.IMPERVIOUS_BIT_MASK
+        imperviousArray = np.where((postProcessingMask &
+                                    imperviousBitMask) ==
+                                   imperviousBitMask, 1, 0)
+        return imperviousArray.astype(QAMap.DTYPE)
 
     # -------------------------------------------------------------------------
     # _extractPackedBitBinaryArray

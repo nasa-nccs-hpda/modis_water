@@ -117,7 +117,8 @@ class Classifier(object):
     def computeNdvi(self, sr1, sr2):
 
         # return ((sr2 - sr1) / (sr2 + sr1)) * 10000
-        ndvi_unfiltered = ((sr2 - sr1) / (sr2 + sr1) * 10000).astype(np.int16)
+        ndvi_unfiltered = \
+            (((sr2 - sr1) / (sr2 + sr1)) * 10000).astype(np.int16)
         ndvi = np.where(sr1 + sr2 != 0, ndvi_unfiltered, 0)
         return ndvi
 
@@ -184,14 +185,17 @@ class Classifier(object):
             self._logger.info('Generating mask')
 
         maskGen = MaskGenerator(bandDict)
-        mask = maskGen.generateMask(self._debug)   # int64, bandDict int16
+        generalMask = maskGen.generateGeneralMask(
+            self._debug)   # int64, bandDict int16
+        landMask = maskGen.generateLandMask(self._debug)
 
         if self._debug:
 
             if self._logger:
-                self._logger.info('Mask type: ' + str(mask.dtype))
+                self._logger.info('Mask type: ' + str(generalMask.dtype))
 
-            Utils.writeRaster(self._outDir, mask, 'mask')
+            Utils.writeRaster(self._outDir, maskGen, 'GeneralMask')
+            Utils.writeRaster(self._outDir, landMask, 'LandMask')
 
         # ---
         # Classify
@@ -221,10 +225,14 @@ class Classifier(object):
         if self._logger:
             self._logger.info('Masking')
 
-        finalImage = \
-            np.where(mask == MaskGenerator.GOOD_DATA,
-                     predictedImage,
-                     Classifier.BAD_DATA).astype(np.int16)
+        generalMaskedImage = np.where(generalMask == MaskGenerator.GOOD_DATA,
+                                      predictedImage,
+                                      Classifier.BAD_DATA).astype(np.int16)
+        predictedLandAndMasked = ((generalMaskedImage == Classifier.LAND) &
+                                  (landMask == MaskGenerator.BAD_DATA))
+        finalImage = np.where(predictedLandAndMasked,
+                              Classifier.BAD_DATA,
+                              generalMaskedImage).astype(np.int16)
 
         self._createOutputImage(outName, finalImage)
 
