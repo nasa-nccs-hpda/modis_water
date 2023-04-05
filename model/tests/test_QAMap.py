@@ -8,44 +8,44 @@ from modis_water.model.QAMap import QAMap
 class test_QAMap(unittest.TestCase):
 
     def setUp(self):
+        self.year = 2021
         self.tile = 'h18v04'
-        self.dem_dir = '.'
-        self.ancillary_dir = '.'
         self.sensor = 'MODIS'
-        self.classifier = 'RandomForest'
-        self.postfix = 'Test'
-        self.year = 2023
-        self.out_dir = '.'
-        self.out_name = 'out_qa'
-        self.logger = None
+        self.classifierName = 'MYD'
+        self.postFix = '.hdf'
+        self.outputDir = '/path/to/output/dir'
 
-        self.qa = QAMap()
-
-    def testGetGMTEDArray(self):
-        # Test exclusion tile
-        exclusion_tile = 'v17'
-        expected_array = np.zeros((QAMap.NCOLS, QAMap.NROWS),
-                                  dtype=QAMap.DTYPE)
-        array = self.qa._getGMTEDArray(f'h00{exclusion_tile}', self.dem_dir)
-        self.assertEqual(array.shape, expected_array.shape)
-        self.assertTrue(np.all(array == expected_array))
-
-        # Test with missing file
+    def test_getAnnualStatPath_error(self):
+        # Call the function and assert that it raises a FileNotFoundError
         with self.assertRaises(FileNotFoundError):
-            self.qa._getGMTEDArray('invalid_tile', self.dem_dir)
+            QAMap._getAnnualStatPath(
+                self.year, self.tile, self.sensor,
+                self.classifierName, self.postFix, self.outputDir)
 
-    def testGetAncillaryArray(self):
-        # Test exclusion tile
-        exclusion_tile = 'v17'
-        expected_array = np.full((QAMap.NCOLS, QAMap.NROWS),
-                                 QAMap.ANCILLARY_FILL_VALUE,
-                                 dtype=QAMap.DTYPE)
-        array = self.qa._getAncillaryArray(
-            f'h00{exclusion_tile}', self.ancillary_dir)
-        self.assertEqual(array.shape, expected_array.shape)
-        self.assertTrue(np.all(array == expected_array))
+    def test_extractPackedBitBinaryArray(self):
+        # Test case 1
+        postProcessingMask1 = np.array(
+            [0b0101, 0b1100, 0b0010], dtype=np.uint8)
+        bitMask1 = 0b0010
+        expected1 = np.array([0, 0, 1], dtype=np.uint8)
+        result1 = QAMap._extractPackedBitBinaryArray(
+            postProcessingMask1, bitMask1)
+        np.testing.assert_array_equal(result1, expected1)
 
-        # Test with missing file
-        with self.assertRaises(FileNotFoundError):
-            self.qa._getAncillaryArray('h99v99', self.ancillary_dir)
+        # Test case 2
+        postProcessingMask2 = np.array(
+            [0b1010, 0b1111, 0b1100], dtype=np.uint8)
+        bitMask2 = 0b1100
+        expected2 = np.array([0, 1, 1], dtype=np.uint8)
+        result2 = QAMap._extractPackedBitBinaryArray(
+            postProcessingMask2, bitMask2)
+        np.testing.assert_array_equal(result2, expected2)
 
+        # Test case 3
+        postProcessingMask3 = np.array(
+            [0b0000, 0b1111, 0b0011], dtype=np.uint8)
+        bitMask3 = 0b0101
+        expected3 = np.array([0, 1, 0], dtype=np.uint8)
+        result3 = QAMap._extractPackedBitBinaryArray(
+            postProcessingMask3, bitMask3)
+        np.testing.assert_array_equal(result3, expected3)

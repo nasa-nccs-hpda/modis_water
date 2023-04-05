@@ -60,6 +60,7 @@ class QAMap(object):
     QA_IMPERVIOUS: int = 7
     QA_DEM_SLOPE: int = 9
     QA_NO_DATA: int = 10
+    QA_OUT_OF_PROJECTION: int = 250
 
     BURN_SCAR: int = 1
     IMPERVIOUS_SURFACE: int = 1
@@ -260,7 +261,7 @@ class QAMap(object):
             QAMap.ANNUAL_OUT_OF_PROJECTION,
             annualProductOutput)
         qaOutput = np.where(out_of_projection,
-                            QAMap.QA_NO_DATA,
+                            QAMap.QA_OUT_OF_PROJECTION,
                             qaOutput)
 
         # Write out the final annual product in addition to the QA map.
