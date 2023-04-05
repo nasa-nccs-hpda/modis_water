@@ -41,7 +41,7 @@ class MaskGenerator(object):
         self._bandDict = bandDict
 
     # -------------------------------------------------------------------------
-    # generateMask
+    # generateGeneralMask
     # -------------------------------------------------------------------------
     def generateGeneralMask(self, debug=False):
 
@@ -61,7 +61,7 @@ class MaskGenerator(object):
         return mask
 
     # -------------------------------------------------------------------------
-    # generateMask
+    # generateLandMask
     # -------------------------------------------------------------------------
     def generateLandMask(self, debug=False):
 
