@@ -5,6 +5,7 @@ from skimage.segmentation import find_boundaries
 import numpy as np
 
 from modis_water.model.BandReader import BandReader
+from modis_water.model.QAMap import QAMap
 from modis_water.model.Utils import Utils
 
 
@@ -13,9 +14,41 @@ from modis_water.model.Utils import Utils
 # -------------------------------------------------------------------------
 class SevenClassMap(object):
 
-    TIF_BASE_NAME = 'Master_7class_maxextent_'
     DTYPE = np.uint8
-    NODATA = 250
+    NODATA: int = 253
+
+    # Seven Class Mask
+    SC_SHALLOW_BIT_MASK: int = 128  # 0b10000000
+    SC_LAND_BIT_MASK: int = 256  # 0b100000000
+    SC_PL0_BIT_MASK: int = 512  # 0b1000000000
+    SC_INLAND_BIT_MASK: int = 1024  # 0b10000000000
+    SC_PL1_BIT_MASK: int = 2048  # 0b100000000000
+    SC_DIN_BIT_MASK: int = 4096  # 0b1000000000000
+    SC_MOC_BIT_MASK: int = 8192  # 0b10000000000000
+    SC_DOC_BIT_MASK: int = 16384  # 0b100000000000000
+    SC_NODATA_BIT_MASK: int = 32640  # 0b111111110000000
+
+    SC_SHALLOW_VALUE: int = 0
+    SC_LAND_VALUE: int = 1
+    SC_PL0_VALUE: int = 2
+    SC_INLAND_VALUE: int = 3
+    SC_PL1_VALUE: int = 4
+    SC_DEEP_INLAND_VALUE: int = 5
+    SC_MODERATE_OCEAN_VALUE: int = 6
+    SC_DEEP_OCEAN_VALUE: int = 7
+    SC_NODATA_VALUE: int = 253
+
+    SEVEN_CLASS_BIT_MASK_DICT: dict = {
+        SC_SHALLOW_VALUE: SC_SHALLOW_BIT_MASK,
+        SC_LAND_VALUE: SC_LAND_BIT_MASK,
+        SC_PL0_VALUE: SC_PL0_BIT_MASK,
+        SC_INLAND_VALUE: SC_INLAND_BIT_MASK,
+        SC_PL1_VALUE: SC_PL1_BIT_MASK,
+        SC_DEEP_INLAND_VALUE: SC_DIN_BIT_MASK,
+        SC_MODERATE_OCEAN_VALUE: SC_MOC_BIT_MASK,
+        SC_DEEP_OCEAN_VALUE: SC_DOC_BIT_MASK,
+        SC_NODATA_VALUE: SC_NODATA_BIT_MASK
+    }
 
     # -------------------------------------------------------------------------
     # generateSevenClass
@@ -25,7 +58,7 @@ class SevenClassMap(object):
             sensor,
             year,
             tile,
-            staticSevenClassDir,
+            postProcessingDir,
             annualProductPath,
             classifierName,
             outDir,
@@ -54,11 +87,11 @@ class SevenClassMap(object):
 
         else:
             # Search and read in annual product and static seven-class.
-            staticSevenPath = SevenClassMap._getStaticSevenClassPath(
-                staticSevenClassDir, tile)
-            staticSevenDataset = gdal.Open(staticSevenPath)
-            staticSevenArray = \
-                staticSevenDataset.GetRasterBand(1).ReadAsArray()
+            postProcessingArray = QAMap._getPostProcessingMask(
+                tile,
+                postProcessingDir)
+            staticSevenArray = SevenClassMap._extractSevenClassArray(
+                postProcessingArray)
 
             restArray = annualProductArray.copy()
 
@@ -128,20 +161,25 @@ class SevenClassMap(object):
         return imageName
 
     # -------------------------------------------------------------------------
-    # getStaticSevenClassPath
+    # _extractSevenClassArray
     # -------------------------------------------------------------------------
     @staticmethod
-    def _getStaticSevenClassPath(staticSevenClassDir, tile):
-        staticSevenClassFileName = '{}{}.tif'.format(
-            SevenClassMap.TIF_BASE_NAME, tile)
-        staticSevenClassPath = os.path.join(
-            staticSevenClassDir, staticSevenClassFileName)
-        if os.path.exists(staticSevenClassPath):
-            return staticSevenClassPath
-        else:
-            msg = 'Static MODIS 7-class: {} does not exist'\
-                .format(staticSevenClassPath)
-            raise FileNotFoundError(msg)
+    def _extractSevenClassArray(postProcessingMask: np.ndarray) -> np.ndarray:
+        scBitMaskDict = SevenClassMap.SEVEN_CLASS_BIT_MASK_DICT
+        scNoDataBitMask = SevenClassMap.SC_NODATA_BIT_MASK
+        scDataArray = np.zeros(
+            (BandReader.COLS, BandReader.ROWS), dtype=SevenClassMap.DTYPE)
+        for sevenClassValue in scBitMaskDict.keys():
+            bitMask = scBitMaskDict[sevenClassValue]
+            condition = (postProcessingMask & bitMask) == bitMask
+            scDataArray = np.where(condition, sevenClassValue,
+                                   scDataArray)
+        noDataCondition = (postProcessingMask & scNoDataBitMask) == \
+            scNoDataBitMask
+        scDataArray = np.where(noDataCondition,
+                               SevenClassMap.NODATA,
+                               scDataArray)
+        return scDataArray
 
     # -------------------------------------------------------------------------
     # generateShoreline

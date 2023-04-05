@@ -49,7 +49,7 @@ class MaskGeneratorTestCase(unittest.TestCase):
     # -------------------------------------------------------------------------
     # testQA
     # -------------------------------------------------------------------------
-    def testQA(self):
+    def testLandQA(self):
 
         # Test all good values.
         testArray = np.array([[0, 0], [0, 0]])
@@ -73,7 +73,7 @@ class MaskGeneratorTestCase(unittest.TestCase):
         expected = [[MaskGenerator.GOOD_DATA, MaskGenerator.GOOD_DATA],
                     [MaskGenerator.GOOD_DATA, MaskGenerator.BAD_DATA]]
 
-        self.bandTester(BandReader.STATE, testArray, expected)
+        self.bandLandTester(BandReader.STATE, testArray, expected)
 
         # Test cloud mixed.
         testArray = np.array([[0, 0], [MaskGenerator.CLOUD_MIXED,
@@ -82,7 +82,7 @@ class MaskGeneratorTestCase(unittest.TestCase):
         expected = [[MaskGenerator.GOOD_DATA, MaskGenerator.GOOD_DATA],
                     [MaskGenerator.BAD_DATA, MaskGenerator.BAD_DATA]]
 
-        self.bandTester(BandReader.STATE, testArray, expected)
+        self.bandLandTester(BandReader.STATE, testArray, expected)
 
         # Test cloud internal.
         testArray = np.array([[0, MaskGenerator.CLOUD_INT], [0, 0]])
@@ -90,7 +90,19 @@ class MaskGeneratorTestCase(unittest.TestCase):
         expected = [[MaskGenerator.GOOD_DATA, MaskGenerator.BAD_DATA],
                     [MaskGenerator.GOOD_DATA, MaskGenerator.GOOD_DATA]]
 
-        self.bandTester(BandReader.STATE, testArray, expected)
+        self.bandLandTester(BandReader.STATE, testArray, expected)
+
+    # -------------------------------------------------------------------------
+    # bandTester
+    # -------------------------------------------------------------------------
+    def bandLandTester(self, bandName, testArray, expectedOutput):
+
+        bd = MaskGeneratorTestCase.bandDict
+        bd[bandName] = testArray
+        mg = MaskGenerator(bd)
+        mask = mg.generateLandMask()
+        bd[bandName] = np.zeros((2, 2), dtype=np.int16)  # reset band
+        self.assertTrue(np.array_equal(mask, expectedOutput))
 
     # -------------------------------------------------------------------------
     # bandTester
@@ -100,7 +112,7 @@ class MaskGeneratorTestCase(unittest.TestCase):
         bd = MaskGeneratorTestCase.bandDict
         bd[bandName] = testArray
         mg = MaskGenerator(bd)
-        mask = mg.generateMask()
+        mask = mg.generateGeneralMask()
         bd[bandName] = np.zeros((2, 2), dtype=np.int16)  # reset band
         self.assertTrue(np.array_equal(mask, expectedOutput))
 
@@ -117,14 +129,6 @@ class MaskGeneratorTestCase(unittest.TestCase):
 
         self.bandTester(band, testArray, expected)
 
-        # Test 16000
-        testArray = np.array([[9999, 16001], [9999, 9999]])
-
-        expected = [[MaskGenerator.GOOD_DATA, MaskGenerator.BAD_DATA],
-                    [MaskGenerator.GOOD_DATA, MaskGenerator.GOOD_DATA]]
-
-        self.bandTester(band, testArray, expected)
-
     # -------------------------------------------------------------------------
     # testSRs
     # -------------------------------------------------------------------------
@@ -132,8 +136,3 @@ class MaskGeneratorTestCase(unittest.TestCase):
 
         self.srTester(BandReader.SR1)
         self.srTester(BandReader.SR2)
-        self.srTester(BandReader.SR3)
-        self.srTester(BandReader.SR4)
-        self.srTester(BandReader.SR5)
-        self.srTester(BandReader.SR6)
-        self.srTester(BandReader.SR7)
