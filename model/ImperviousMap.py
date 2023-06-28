@@ -40,11 +40,8 @@ class ImperviousMap(object):
         imperviousInRange = (
             (imperviousDataArray >= ImperviousMap.PERCENTAGE_CUTOFF_FLOOR) &
             (imperviousDataArray <= ImperviousMap.PERCENTAGE_CUTOFF_CEIL))
-        imperviousIncludeNoData = (
-            imperviousInRange |
-            (imperviousDataArray == ImperviousMap.PERCENTAGE_NODATA))
         imperviousThresholded = np.where(
-            imperviousIncludeNoData, 1, 0).astype(ImperviousMap.DTYPE)
+            imperviousInRange, 1, 0).astype(ImperviousMap.DTYPE)
         imperviousOutputFlipped = imperviousThresholded ^ 1
         imperviousDialated = ImperviousMap._dialateImpervious(
             imperviousOutputFlipped)
