@@ -69,8 +69,6 @@ class SevenClassMap(object):
         annualProductDataset = gdal.Open(annualProductPath)
         annualProductArray = annualProductDataset.GetRasterBand(
             1).ReadAsArray()
-        print('Annual product')
-        print(np.unique(annualProductArray, return_counts=True))
         transform = annualProductDataset.GetGeoTransform() \
             if georeferenced else None
         projection = annualProductDataset.GetProjection() \
