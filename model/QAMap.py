@@ -254,8 +254,8 @@ class QAMap(object):
 
         # QA map case 10, MODIS_water_algorithm_MODIS_v2 1.d.vi.1-2
         out_of_projection = (postProcessingArray &
-                             QAMap.OOP_BIT_MASK) \
-            == QAMap.OOP_BIT_MASK
+                             QAMap.ANC_NODATA_BIT_MASK) \
+            == QAMap.ANC_NODATA_BIT_MASK
         annualProductOutput = np.where(
             out_of_projection,
             QAMap.ANNUAL_OUT_OF_PROJECTION,

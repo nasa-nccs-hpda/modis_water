@@ -15,7 +15,7 @@ from modis_water.model.Utils import Utils
 class SevenClassMap(object):
 
     DTYPE = np.uint8
-    NODATA: int = 253
+    NODATA: int = 250
 
     # Seven Class Mask
     SC_SHALLOW_BIT_MASK: int = 128  # 0b10000000
@@ -36,7 +36,7 @@ class SevenClassMap(object):
     SC_DEEP_INLAND_VALUE: int = 5
     SC_MODERATE_OCEAN_VALUE: int = 6
     SC_DEEP_OCEAN_VALUE: int = 7
-    SC_NODATA_VALUE: int = 253
+    SC_NODATA_VALUE: int = 250
 
     SEVEN_CLASS_BIT_MASK_DICT: dict = {
         SC_SHALLOW_VALUE: SC_SHALLOW_BIT_MASK,
@@ -69,6 +69,8 @@ class SevenClassMap(object):
         annualProductDataset = gdal.Open(annualProductPath)
         annualProductArray = annualProductDataset.GetRasterBand(
             1).ReadAsArray()
+        print('Annual product')
+        print(np.unique(annualProductArray, return_counts=True))
         transform = annualProductDataset.GetGeoTransform() \
             if georeferenced else None
         projection = annualProductDataset.GetProjection() \
@@ -136,6 +138,14 @@ class SevenClassMap(object):
             outputSevenClassArray = np.where(restArray == 1, 3,
                                              outputSevenClassArray)
 
+            # No-data setting, according to ancillary mask
+            ancillaryNodata = (
+                (postProcessingArray & QAMap.OOP_BIT_MASK)
+                == QAMap.OOP_BIT_MASK)
+            outputSevenClassArray = np.where(ancillaryNodata,
+                                             SevenClassMap.SC_NODATA_VALUE,
+                                             outputSevenClassArray)
+
             shoreLine = SevenClassMap._generateShoreline(outputSevenClassArray)
 
             outputSevenClassArray = np.where(shoreLine == 1, 2,
@@ -166,7 +176,7 @@ class SevenClassMap(object):
     @staticmethod
     def _extractSevenClassArray(postProcessingMask: np.ndarray) -> np.ndarray:
         scBitMaskDict = SevenClassMap.SEVEN_CLASS_BIT_MASK_DICT
-        scNoDataBitMask = SevenClassMap.SC_NODATA_BIT_MASK
+        scNoDataBitMask = QAMap.ANC_NODATA_BIT_MASK
         scDataArray = np.zeros(
             (BandReader.COLS, BandReader.ROWS), dtype=SevenClassMap.DTYPE)
         for sevenClassValue in scBitMaskDict.keys():
