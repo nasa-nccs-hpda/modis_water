@@ -138,8 +138,8 @@ class SevenClassMap(object):
 
             # No-data setting, according to ancillary mask
             ancillaryNodata = (
-                (postProcessingArray & QAMap.OOP_BIT_MASK)
-                == QAMap.OOP_BIT_MASK)
+                (postProcessingArray & QAMap.ANC_NODATA_BIT_MASK)
+                == QAMap.ANC_NODATA_BIT_MASK)
             outputSevenClassArray = np.where(ancillaryNodata,
                                              SevenClassMap.SC_NODATA_VALUE,
                                              outputSevenClassArray)
