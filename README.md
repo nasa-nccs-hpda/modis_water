@@ -2,13 +2,16 @@
 
 # <b>MODIS Water - MOD44W Classifier Application Documentation</b>
 
+
 Version 4.0.1
+
 
 Data Science Group 606.3
 
 <br/>
 
 - [MODIS Water - MOD44W Classifier Application Documentation](#modis-water---mod44w-classifier-application-documentation)
+
   - [4.0.1 Changelog](#400-changelog)
     - [OLD (DO NOT USE THIS)](#old-do-not-use-this)
     - [NEW (USE THIS INSTEAD)](#new-use-this-instead)
@@ -41,6 +44,7 @@ Data Science Group 606.3
 4.0.1 BUGFIX: Removed bug from impervious map generation (which is added to the packed bit post-processing mask) which included no-data in the impervious land flip. Updated post-processing masks are required.
 
 As with the 4.0.0 change, GMTED/DEM products and Static Seven Class products are no longer supported. Instead a single post-processing product is required.
+
 See the "Staged data products" section for more information on the post-processing product.
 
 NO LONGER NEEDED:
