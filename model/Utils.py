@@ -14,15 +14,15 @@ DayRange = namedtuple('DayRange', 'start end')
 # -----------------------------------------------------------------------------
 class Utils(object):
 
-    INCLUSIONS = {'v00': DayRange(177, 256),
-                  'v01': DayRange(161, 256),
-                  'v02': DayRange(145, 288),
-                  'v03': DayRange(129, 304)}
+    INCLUSIONS = {'v00': DayRange(177, 256),  # 177 plus 5 16-day periods
+                  'v01': DayRange(161, 256),  # 161 plus 7 16-day periods
+                  'v02': DayRange(145, 288),  # 145 plus 9 16-day periods
+                  'v03': DayRange(129, 304)}  # 129 plus 11 16-day periods
 
-    EXCLUSIONS = {'v17': DayRange(177, 256),
-                  'v16': DayRange(161, 256),
-                  'v15': DayRange(145, 288),
-                  'v14': DayRange(129, 304)}
+    EXCLUSIONS = {'v17': DayRange(72, 357),   # 357 plus 5 16-day periods
+                  'v16': DayRange(88, 341),   # 341 plus 7 16-day periods
+                  'v15': DayRange(104, 325),  # 325 plus 9 16-day periods
+                  'v14': DayRange(120, 309)}  # 309 plus 11 16-day periods
 
     QA_ANTARCTIC_EXCLUSION = ['v17', 'v16', 'v15']
 

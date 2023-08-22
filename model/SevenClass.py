@@ -76,78 +76,82 @@ class SevenClassMap(object):
 
         outputSevenClassArray = np.zeros((BandReader.COLS, BandReader.ROWS))
 
+        # Search and read in annual product and static seven-class.
+        postProcessingArray = QAMap._getPostProcessingMask(
+            tile,
+            postProcessingDir)
+
+        staticSevenArray = SevenClassMap._extractSevenClassArray(
+            postProcessingArray, tile)
+
+        restArray = annualProductArray.copy()
+
+        # Perform checks.
+        outputSevenClassArray = np.where(
+            annualProductArray == 0, 1, outputSevenClassArray)
+
+        restArray = np.where(annualProductArray == 0, 0, restArray)
+
+        annualEqualsOne = (annualProductArray == 1)
+
+        deepInland = np.logical_and(annualEqualsOne, staticSevenArray == 5)
+
+        outputSevenClassArray = np.where(
+            deepInland, 5, outputSevenClassArray)
+
+        restArray = np.where(deepInland, 0, restArray)
+
+        shallowOcean = np.logical_and(
+            annualEqualsOne, staticSevenArray == 0)
+
+        outputSevenClassArray = np.where(shallowOcean, 0,
+                                         outputSevenClassArray)
+
+        restArray = np.where(shallowOcean, 0, restArray)
+
+        moderateOcean = np.logical_and(
+            annualEqualsOne, staticSevenArray == 6)
+
+        outputSevenClassArray = np.where(moderateOcean, 6,
+                                         outputSevenClassArray)
+
+        restArray = np.where(moderateOcean, 0, restArray)
+
+        deepOcean = np.logical_and(annualEqualsOne, staticSevenArray == 7)
+
+        outputSevenClassArray = np.where(
+            deepOcean, 7, outputSevenClassArray)
+
+        restArray = np.where(deepOcean, 0, restArray)
+
+        outputSevenClassArray = np.where(restArray == 1, 3,
+                                         outputSevenClassArray)
+
+        # No-data setting, according to ancillary mask
+        ancillaryNodata = (
+            (postProcessingArray & QAMap.ANC_NODATA_BIT_MASK)
+            == QAMap.ANC_NODATA_BIT_MASK)
+
+        # ---
+        # This is the case where we know SC has valid data but the
+        # ancillary mask is all no-data (doesn't exist for antarctic)
+        # This way any part of antarctica that has valid seven class
+        # data (i.e data between 0 and 7) we will revert the no-data
+        # ---
         exclusionTile = tile[3:] in Utils.QA_ANTARCTIC_EXCLUSION
 
         if exclusionTile:
+            validSevenClassData = (staticSevenArray > 7)
+            ancillaryNodata = (ancillaryNodata & validSevenClassData)
 
-            if logger:
-                msg = 'Antarctic tiles have no seven class. Filling nodata.'
-                logger.info(msg)
-            outputSevenClassArray.fill(SevenClassMap.NODATA)
+        outputSevenClassArray = np.where(ancillaryNodata,
+                                         SevenClassMap.SC_NODATA_VALUE,
+                                         outputSevenClassArray)
 
-        else:
-            # Search and read in annual product and static seven-class.
-            postProcessingArray = QAMap._getPostProcessingMask(
-                tile,
-                postProcessingDir)
-            staticSevenArray = SevenClassMap._extractSevenClassArray(
-                postProcessingArray)
+        shoreLine = SevenClassMap._generateShoreline(outputSevenClassArray)
 
-            restArray = annualProductArray.copy()
-
-            # Perform checks.
-            outputSevenClassArray = np.where(
-                annualProductArray == 0, 1, outputSevenClassArray)
-
-            restArray = np.where(annualProductArray == 0, 0, restArray)
-
-            annualEqualsOne = (annualProductArray == 1)
-
-            deepInland = np.logical_and(annualEqualsOne, staticSevenArray == 5)
-
-            outputSevenClassArray = np.where(
-                deepInland, 5, outputSevenClassArray)
-
-            restArray = np.where(deepInland, 0, restArray)
-
-            shallowOcean = np.logical_and(
-                annualEqualsOne, staticSevenArray == 0)
-
-            outputSevenClassArray = np.where(shallowOcean, 0,
-                                             outputSevenClassArray)
-
-            restArray = np.where(shallowOcean, 0, restArray)
-
-            moderateOcean = np.logical_and(
-                annualEqualsOne, staticSevenArray == 6)
-
-            outputSevenClassArray = np.where(moderateOcean, 6,
-                                             outputSevenClassArray)
-
-            restArray = np.where(moderateOcean, 0, restArray)
-
-            deepOcean = np.logical_and(annualEqualsOne, staticSevenArray == 7)
-
-            outputSevenClassArray = np.where(
-                deepOcean, 7, outputSevenClassArray)
-
-            restArray = np.where(deepOcean, 0, restArray)
-
-            outputSevenClassArray = np.where(restArray == 1, 3,
-                                             outputSevenClassArray)
-
-            # No-data setting, according to ancillary mask
-            ancillaryNodata = (
-                (postProcessingArray & QAMap.ANC_NODATA_BIT_MASK)
-                == QAMap.ANC_NODATA_BIT_MASK)
-            outputSevenClassArray = np.where(ancillaryNodata,
-                                             SevenClassMap.SC_NODATA_VALUE,
-                                             outputSevenClassArray)
-
-            shoreLine = SevenClassMap._generateShoreline(outputSevenClassArray)
-
-            outputSevenClassArray = np.where(shoreLine == 1, 2,
-                                             outputSevenClassArray)
+        outputSevenClassArray = np.where(shoreLine == 1, 2,
+                                         outputSevenClassArray)
 
         # Write out the seven-class.
         outputSevenClassName = '{}44W.A{}.{}.{}.AnnualSevenClass.{}'.format(
@@ -166,13 +170,16 @@ class SevenClassMap(object):
                 projection=projection,
                 geoTiff=geoTiff,
                 transform=transform)
+
         return imageName
 
     # -------------------------------------------------------------------------
     # _extractSevenClassArray
     # -------------------------------------------------------------------------
     @staticmethod
-    def _extractSevenClassArray(postProcessingMask: np.ndarray) -> np.ndarray:
+    def _extractSevenClassArray(postProcessingMask: np.ndarray, tile: str) -> \
+            np.ndarray:
+        exclusionTile = tile[3:] in Utils.QA_ANTARCTIC_EXCLUSION
         scBitMaskDict = SevenClassMap.SEVEN_CLASS_BIT_MASK_DICT
         scNoDataBitMask = QAMap.ANC_NODATA_BIT_MASK
         scDataArray = np.zeros(
@@ -184,6 +191,17 @@ class SevenClassMap(object):
                                    scDataArray)
         noDataCondition = (postProcessingMask & scNoDataBitMask) == \
             scNoDataBitMask
+
+        # ---
+        # This is the case where we know SC has valid data but the
+        # ancillary mask is all no-data (doesn't exist for antarctic)
+        # This way any part of antarctica that has valid seven class
+        # data (i.e data between 0 and 7) we will revert the no-data
+        # ---
+        if exclusionTile:
+            validSevenClassData = (scDataArray > 7)
+            noDataCondition = (noDataCondition & validSevenClassData)
+
         scDataArray = np.where(noDataCondition,
                                SevenClassMap.NODATA,
                                scDataArray)
