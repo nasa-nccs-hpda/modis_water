@@ -141,6 +141,8 @@ class QAMap(object):
         ancillaryDataArray = \
             QAMap._extractAncillaryArray(postProcessingArray)
 
+
+        """
         totalWater = QAMap._getAnnualStatPath(
             year,
             tile,
@@ -148,7 +150,6 @@ class QAMap(object):
             classifierName,
             QAMap.TOTAL_WATER_POST_STR,
             outDir)
-
         totalLand = QAMap._getAnnualStatPath(
             year,
             tile,
@@ -156,10 +157,14 @@ class QAMap(object):
             classifierName,
             QAMap.TOTAL_LAND_POST_STR,
             outDir)
+        """
 
         annualProductDataset = gdal.Open(annualProductPath)
         annualProductArray = annualProductDataset.GetRasterBand(
             1).ReadAsArray()
+
+        totalLand = np.where(annualProductArray == 0, 100, 0)
+        totalWater = np.where(annualProductArray == 1, 100, 0)
 
         burnScarArray = QAMap._readAndResample(burnedAreaPath)
 
