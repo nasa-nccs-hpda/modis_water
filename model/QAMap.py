@@ -30,6 +30,7 @@ Legend=
     0: possible water (max extent)
     1: land
     2: ocean
+    9: fill value
     10: outside projection
 """
 
@@ -60,7 +61,7 @@ class QAMap(object):
     QA_IMPERVIOUS: int = 7
     QA_DEM_SLOPE: int = 9
     QA_NO_DATA: int = 10
-    QA_OUT_OF_PROJECTION: int = 250
+    QA_OUT_OF_PROJECTION: int = 10
 
     BURN_SCAR: int = 1
     IMPERVIOUS_SURFACE: int = 1
@@ -92,6 +93,7 @@ class QAMap(object):
     ANC_LAND_VALUE: int = 0
     ANC_WATER_VALUE: int = 1
     ANC_OCEAN_VALUE: int = 2
+    ANC_FILL_VALUE: int = 9
     ANC_NODATA_VALUE: int = 10
 
     ANCILLARY_BIT_MASK_DICT: dict = {
@@ -146,6 +148,7 @@ class QAMap(object):
             classifierName,
             QAMap.TOTAL_WATER_POST_STR,
             outDir)
+
         totalLand = QAMap._getAnnualStatPath(
             year,
             tile,
@@ -230,9 +233,9 @@ class QAMap(object):
         low_confidence_land = (
             (annualProductArray == QAMap.ANNUAL_LAND) &
             (totalLand < 6) &
-            (ancillaryDataArray != QAMap.QA_DEM_SLOPE) &
             (ancillaryDataArray != QAMap.ANCILLARY_OCEAN) &
             (annualProductOutput != QAMap.ANNUAL_WATER) &
+            (qaOutput != QAMap.QA_DEM_SLOPE) &
             (qaOutput != QAMap.QA_BURN_SCAR))
         qaOutput = np.where(low_confidence_land,
                             QAMap.QA_LOW_CONFIDENCE_LAND,
@@ -256,6 +259,7 @@ class QAMap(object):
         out_of_projection = (postProcessingArray &
                              QAMap.ANC_NODATA_BIT_MASK) \
             == QAMap.ANC_NODATA_BIT_MASK
+
         annualProductOutput = np.where(
             out_of_projection,
             QAMap.ANNUAL_OUT_OF_PROJECTION,
@@ -317,6 +321,7 @@ class QAMap(object):
         ancillaryBitMaskDict = QAMap.ANCILLARY_BIT_MASK_DICT
         ancillaryDataArray = np.zeros(
             (BandReader.COLS, BandReader.ROWS), dtype=QAMap.DTYPE)
+        ancillaryDataArray.fill(QAMap.ANC_FILL_VALUE)
         for ancillaryValue in ancillaryBitMaskDict.keys():
             bitMask = ancillaryBitMaskDict[ancillaryValue]
             condition = (postProcessingMask & bitMask) == bitMask
