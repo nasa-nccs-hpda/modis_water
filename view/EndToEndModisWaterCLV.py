@@ -98,6 +98,7 @@ def main():
 
     # Sensor name
     sensors = set(args.sensor) & br.SENSORS
+    sensortsStr = '.'.join(list(sensors))
 
     # Logging
     logger = logging.getLogger()
@@ -108,7 +109,7 @@ def main():
         "%(asctime)s; %(levelname)s; %(message)s", "%Y-%m-%d %H:%M:%S"
     )
     ch.setFormatter(formatter)
-    logFileName = f'{args.y}.{args.t}.{args.classifier}{sensors}.log'
+    logFileName = f'{args.y}.{args.t}.{args.classifier}{sensortsStr}.log'
     fh = logging.FileHandler(os.path.join(args.o, logFileName))
     fh.setLevel(logging.INFO)
     fh.setFormatter(formatter)
