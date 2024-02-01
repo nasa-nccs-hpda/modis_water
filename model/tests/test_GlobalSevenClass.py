@@ -157,7 +157,6 @@ class GlobalSevenClassMapTestCase(unittest.TestCase):
         # Assertions
         np.testing.assert_array_equal(result, expectedResult)
 
-
     # -------------------------------------------------------------------------
     # testAddShorelineToSevenClass
     # -------------------------------------------------------------------------

@@ -289,22 +289,7 @@ class GlobalSevenClassMap(object):
         the shoreline of the SC array.
         """
 
-        # DEV (will need to work on new global)
-        metadata = sevenClassAttributesDict['ds_metadata']
-
-        tile = metadata['LOCALGRANULEID'].split('.')[2]
-
-        fileToOpen = list(pathlib.Path('../data').glob(
-            f'MOD44W.A2019.{tile}.Simple.AnnualSevenClass.*.bin'))[0]
-
-        binDS = gdal.Open(str(fileToOpen), gdal.GA_ReadOnly)
-
-        array = binDS.GetRasterBand(1).ReadAsArray()
-
-        del binDS
-
-        # PRODUCTION
-        # array = sevenClassAttributesDict['ndarray']
+        array = sevenClassAttributesDict['ndarray']
 
         sevenClassNoShoreline = GlobalSevenClassMap.revertShorelineFromArray(
             array)
