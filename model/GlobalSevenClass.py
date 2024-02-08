@@ -48,9 +48,9 @@ class GlobalSevenClassMap(object):
     SC_DTYPE: np.dtype = np.uint8
 
     # Constants for applying seven class global product to generate shoreline
-    PARALLEL_GRID_SIZE: int = 1020 
+    PARALLEL_GRID_SIZE: int = 1020
 
-    PARALLEL_OVERLAP: int = 64 
+    PARALLEL_OVERLAP: int = 64
 
     PARALLEL_MODE: str = 'reflect'
 
@@ -112,7 +112,7 @@ class GlobalSevenClassMap(object):
             self._logger.info(infoMsg)
 
         else:
-            
+
             infoMsg = f'Writing {globalNoShorePathSinu}.'
 
             self._logger.info(infoMsg)
@@ -139,7 +139,8 @@ class GlobalSevenClassMap(object):
             self._logger.info(infoMsg)
 
             # Reproject sinu proj to wgs84
-            self._warpAndWriteWgs84(globalNoShorePathSinu, globalNoShorePathWgs84)
+            self._warpAndWriteWgs84(globalNoShorePathSinu,
+                                    globalNoShorePathWgs84)
 
         self._generateGlobalWithShoreline(globalNoShorePathWgs84)
 
@@ -428,8 +429,9 @@ class GlobalSevenClassMap(object):
     # _buildOutputGlobalName
     # -------------------------------------------------------------------------
     def _buildOutputGlobalName(
-            self, sevenClassSamplePath: pathlib.Path, wgs84: bool = False) -> \
-                pathlib.Path:
+            self,
+            sevenClassSamplePath: pathlib.Path,
+            wgs84: bool = False) -> pathlib.Path:
         """
         Builds the output global seven-class without shoreline raster path.
         """
@@ -489,10 +491,10 @@ class GlobalSevenClassMap(object):
     # _warpAndWrite
     # -------------------------------------------------------------------------
     def _warpAndWriteSinu(self,
-                      sevenClassGlobalVrt,
-                      outputSevenClassGlobalPath: pathlib.Path) -> None:
+                          sevenClassGlobalVrt,
+                          outputSevenClassGlobalPath: pathlib.Path) -> None:
         """
-        Given a VRT, runs gdal warp to write out the VRT to disk in sinu proj. 
+        Given a VRT, runs gdal warp to write out the VRT to disk in sinu proj.
         """
 
         warpOptions = gdal.WarpOptions(
@@ -517,13 +519,13 @@ class GlobalSevenClassMap(object):
     # _warpAndWriteWgs84
     # -------------------------------------------------------------------------
     def _warpAndWriteWgs84(self,
-                      inputSevenClassGlobalPath: pathlib.Path,
-                      outputSevenClassGlobalPath: pathlib.Path) -> None:
+                           inputSevenClassGlobalPath: pathlib.Path,
+                           outputSevenClassGlobalPath: pathlib.Path) -> None:
         """
-        Reprojects the global seven-class (no shoreline) from sinu to wgs84. 
+        Reprojects the global seven-class (no shoreline) from sinu to wgs84.
         """
 
-        warpCmd = f'gdalwarp -of GTiff -co COMPRESS=LZW -t_srs EPSG:4326'
+        warpCmd = 'gdalwarp -of GTiff -co COMPRESS=LZW -t_srs EPSG:4326'
 
         warpCmd = warpCmd + f' {inputSevenClassGlobalPath}' + \
             f' {outputSevenClassGlobalPath}'
