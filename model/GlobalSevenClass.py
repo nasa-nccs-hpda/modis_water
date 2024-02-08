@@ -13,6 +13,7 @@ from skimage.segmentation import find_boundaries
 from skimage.util import apply_parallel
 
 
+from core.model.SystemCommand import SystemCommand
 os.environ['USE_PYGEOS'] = '0'
 
 
@@ -47,9 +48,9 @@ class GlobalSevenClassMap(object):
     SC_DTYPE: np.dtype = np.uint8
 
     # Constants for applying seven class global product to generate shoreline
-    PARALLEL_GRID_SIZE: int = 1200
+    PARALLEL_GRID_SIZE: int = 1020 
 
-    PARALLEL_OVERLAP: int = 128
+    PARALLEL_OVERLAP: int = 64 
 
     PARALLEL_MODE: str = 'reflect'
 
@@ -93,24 +94,54 @@ class GlobalSevenClassMap(object):
         sevenClassNoShorelineProducts = \
             self._extractSevenClassFromHdfAndWriteWithNoShoreline()
 
-        globalNoShorePath = self._buildOutputGlobalName(
-            sevenClassNoShorelineProducts[0])
+        # Global no-shoreline in sinusoidal projection path
+        globalNoShorePathSinu = self._buildOutputGlobalName(
+            sevenClassNoShorelineProducts[0], wgs84=False)
 
-        if globalNoShorePath.exists():
+        # Global no-shoreline in wgs84 projection path
+        globalNoShorePathWgs84 = self._buildOutputGlobalName(
+            sevenClassNoShorelineProducts[0], wgs84=True
+        )
 
-            infoMsg = f'{globalNoShorePath} exists.' + \
+        # Write out vrt in sinu projection
+        if globalNoShorePathSinu.exists():
+
+            infoMsg = f'{globalNoShorePathSinu} exists.' + \
+                ' Using for global shoreline generation.'
+
+            self._logger.info(infoMsg)
+
+        else:
+            
+            infoMsg = f'Writing {globalNoShorePathSinu}.'
+
+            self._logger.info(infoMsg)
+
+            # Build the vrt from the individual seven-class tiles
+            sevenClassGlobalVrt = self._buildSevenClassVRT(
+                sevenClassNoShorelineProducts)
+
+            # Write out the VRT to disk
+            self._warpAndWriteSinu(sevenClassGlobalVrt, globalNoShorePathSinu)
+
+        # Warp sinu global product to wgs84
+        if globalNoShorePathWgs84.exists():
+
+            infoMsg = f'{globalNoShorePathWgs84} exists.' + \
                 ' Using for global shoreline generation.'
 
             self._logger.info(infoMsg)
 
         else:
 
-            sevenClassGlobalVrt = self._buildSevenClassVRT(
-                sevenClassNoShorelineProducts)
+            infoMsg = f'Writing {globalNoShorePathWgs84}.'
 
-            self._warpAndWrite(sevenClassGlobalVrt, globalNoShorePath)
+            self._logger.info(infoMsg)
 
-        self._generateGlobalWithShoreline(globalNoShorePath)
+            # Reproject sinu proj to wgs84
+            self._warpAndWriteWgs84(globalNoShorePathSinu, globalNoShorePathWgs84)
+
+        self._generateGlobalWithShoreline(globalNoShorePathWgs84)
 
     # -------------------------------------------------------------------------
     # _extractSevenClassFromHdfAndWriteWithNoShoreline
@@ -397,7 +428,8 @@ class GlobalSevenClassMap(object):
     # _buildOutputGlobalName
     # -------------------------------------------------------------------------
     def _buildOutputGlobalName(
-            self, sevenClassSamplePath: pathlib.Path) -> pathlib.Path:
+            self, sevenClassSamplePath: pathlib.Path, wgs84: bool = False) -> \
+                pathlib.Path:
         """
         Builds the output global seven-class without shoreline raster path.
         """
@@ -409,9 +441,11 @@ class GlobalSevenClassMap(object):
 
         nameNoTile = '.'.join(nameSplitNoTile)
 
+        proj = 'wgs84' if wgs84 else 'sinu'
+
         finalName = nameNoTile.replace(
             'NoShoreline',
-            'AnnualSevenClass.NoShoreline.global')
+            f'AnnualSevenClass.NoShoreline.global.{proj}')
 
         finalSevenClassGlobalPath = self._outDir / f'{finalName}.tif'
 
@@ -454,21 +488,51 @@ class GlobalSevenClassMap(object):
     # -------------------------------------------------------------------------
     # _warpAndWrite
     # -------------------------------------------------------------------------
-    def _warpAndWrite(self,
+    def _warpAndWriteSinu(self,
                       sevenClassGlobalVrt,
                       outputSevenClassGlobalPath: pathlib.Path) -> None:
         """
-        Given a VRT, runs gdal warp to write out the VRT to disk in WGS84.
+        Given a VRT, runs gdal warp to write out the VRT to disk in sinu proj. 
         """
 
-        warpOptions = gdal.WarpOptions(['-co', 'COMPRESS=LZW'])
+        warpOptions = gdal.WarpOptions(
+            gdal.ParseCommandLine("-of Gtiff -co COMPRESS=LZW"))
+
+        self._logger.info(f'Warping VRT to disk with {warpOptions}')
 
         try:
 
             gdal.Warp(str(outputSevenClassGlobalPath),
                       sevenClassGlobalVrt,
-                      dstSRS=self.LAT_LON_EPSG,
                       options=warpOptions)
+
+        except Exception as e:
+
+            errorMsg = 'Encountered error while warping' + \
+                f' global VRT. \n Error: {e}'
+
+            raise RuntimeError(errorMsg)
+
+    # -------------------------------------------------------------------------
+    # _warpAndWriteWgs84
+    # -------------------------------------------------------------------------
+    def _warpAndWriteWgs84(self,
+                      inputSevenClassGlobalPath: pathlib.Path,
+                      outputSevenClassGlobalPath: pathlib.Path) -> None:
+        """
+        Reprojects the global seven-class (no shoreline) from sinu to wgs84. 
+        """
+
+        warpCmd = f'gdalwarp -of GTiff -co COMPRESS=LZW -t_srs EPSG:4326'
+
+        warpCmd = warpCmd + f' {inputSevenClassGlobalPath}' + \
+            f' {outputSevenClassGlobalPath}'
+
+        self._logger.info(f'Running: {warpCmd}')
+
+        try:
+
+            SystemCommand(warpCmd, logger=self._logger)
 
         except Exception as e:
 
