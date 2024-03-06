@@ -3,7 +3,7 @@ import pathlib
 import numpy as np
 
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from modis_water.model.GlobalSevenClass import GlobalSevenClassMap
 
@@ -22,10 +22,16 @@ class GlobalSevenClassMapTestCase(unittest.TestCase):
     # -------------------------------------------------------------------------
     # testGetSevenClassHDFs
     # -------------------------------------------------------------------------
-    def testGetSevenClassHDFs(self):
+    @patch('modis_water.model.GlobalSevenClass.GlobalSevenClassMap.validateFileExists')
+    def testGetSevenClassHDFs(self, mock_validate_file_exists):
+        # Mock the validateFileExists method to do nothing
+        mock_validate_file_exists.side_effect = lambda filepath: None
+
         # Create an instance of GlobalSevenClassMap
         scGlobalMapInstance = GlobalSevenClassMap(
             hdfDirectory='/path/to/hdf/dir',
+            ancFilePath='/path/to/anc/dir/mask',
+            postProcessingDir='/path/to/pp/dir',
             year=2023,
             sensor='MOD',
             outputDir='/path/to/output/dir',
@@ -70,11 +76,16 @@ class GlobalSevenClassMapTestCase(unittest.TestCase):
     # -------------------------------------------------------------------------
     # testValidateNumberOfNoShoreProducts
     # -------------------------------------------------------------------------
-    def testValidateNumberOfNoShorelineProducts(self):
+    @patch('modis_water.model.GlobalSevenClass.GlobalSevenClassMap.validateFileExists')
+    def testValidateNumberOfNoShorelineProducts(self, mock_validate_file_exists):
+        # Mock the validateFileExists method to do nothing
+        mock_validate_file_exists.side_effect = lambda filepath: None
 
         # Create an instance of GlobalSevenClassMap
         scGlobalMapInstance = GlobalSevenClassMap(
             hdfDirectory='/path/to/hdf/dir',
+            ancFilePath='/path/to/anc/dir/mask',
+            postProcessingDir='/path/to/pp/dir',
             year=2023,
             sensor='MYD',
             outputDir='/path/to/output/dir',
@@ -102,10 +113,16 @@ class GlobalSevenClassMapTestCase(unittest.TestCase):
     # -------------------------------------------------------------------------
     # testBuildOutputGlobalName
     # -------------------------------------------------------------------------
-    def testBuildOutputGlobalName(self):
+    @patch('modis_water.model.GlobalSevenClass.GlobalSevenClassMap.validateFileExists')
+    def testBuildOutputGlobalName(self, mock_validate_file_exists):
+        # Mock the validateFileExists method to do nothing
+        mock_validate_file_exists.side_effect = lambda filepath: None
+
         # Create an instance of GlobalSevenClassMap
         scGlobalMapInstance = GlobalSevenClassMap(
             hdfDirectory='/path/to/hdf/dir',
+            ancFilePath='/path/to/anc/dir/mask',
+            postProcessingDir='/path/to/pp/dir',
             year=2023,
             sensor='MOD',
             outputDir='/path/to/output/dir',
@@ -124,7 +141,7 @@ class GlobalSevenClassMapTestCase(unittest.TestCase):
         # Expected output path
         expectedOutputPath = pathlib.Path('/path/to/output/dir/' +
                                           'AnnualSevenClass.NoShoreline.' +
-                                          'global.Sample.tif')
+                                          'global.sinu.Sample.tif')
 
         # Assertions
         self.assertEqual(output_path, expectedOutputPath)

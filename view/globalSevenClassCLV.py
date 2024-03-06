@@ -27,6 +27,14 @@ def main():
                         required=True,
                         help='Directory containing MOD44W HDF products')
 
+    parser.add_argument('-anc',
+                        required=True,
+                        help='Path to antarctic ancillary product')
+
+    parser.add_argument('-postprocessing',
+                        required=True,
+                        help='Path to post-processing dir')
+
     parser.add_argument('--sensor',
                         action='store',
                         nargs='*',
@@ -79,6 +87,8 @@ def main():
     for sensor in sensors:
 
         globalSevenClass = GlobalSevenClassMap(args.hdf,
+                                               args.anc,
+                                               args.postprocessing,
                                                args.y,
                                                sensor,
                                                args.o,

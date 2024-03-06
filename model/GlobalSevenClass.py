@@ -14,6 +14,9 @@ from skimage.util import apply_parallel
 
 
 from core.model.SystemCommand import SystemCommand
+from modis_water.model.SevenClass import SevenClassMap
+from modis_water.model.QAMap import QAMap
+
 os.environ['USE_PYGEOS'] = '0'
 
 
@@ -39,8 +42,10 @@ class GlobalSevenClassMap(object):
 
     MODIS_SINUSOIDAL_6842 = SpatialReference(MODIS_SINUSOIDAL_6842_PROJ_STR)
 
+    # The 7-class value which indicates shoreline
     SHORELINE_VAL: int = 2
 
+    # The 7-class value which indicates land
     LAND_VAL: int = 1
 
     SC_NODATA: int = 250
@@ -54,19 +59,51 @@ class GlobalSevenClassMap(object):
 
     PARALLEL_MODE: str = 'reflect'
 
+    ANTARCTIC_EXCLUSION: list = ['v17', 'v16', 'v15', 'v14']
+
+    # ---
+    # The first 4 bits of the anc mask are reserved for 7-class values
+    # to add to the final mask where the origianl 7-class is no-data
+    # ---
+    SEVEN_CLASS_RESERVED_BITS: int = 0b1111
+
+    # ---
+    # This bit is reserved for cases where anc pixels should be used
+    # instead of the 7-class values. This is for cases where we know
+    # the 7-class is wrong, e.g. edges of the dateline where reprojection
+    # artifacts pop up.
+    # ---
+    CORRECTIVE_BIT_MASK: int = 0b1110000
+
+    OCEAN_SET: list = [0, 6, 7]
+
+    REPLACEMENT_VALUE: int = 0
+
+    NUM_INLAND_OC_ADJ_ITERS: int = 10
+
     # -------------------------------------------------------------------------
     # __init__
     # -------------------------------------------------------------------------
     def __init__(self,
                  hdfDirectory: str,
+                 ancFilePath: str,
+                 postProcessingDir: str,
                  year: int, sensor,
                  outputDir: str,
                  logger: logging.Logger,
                  debug: bool = False) -> None:
 
         self.hdfDirectory = pathlib.Path(hdfDirectory)
+        self.validateFileExists(self.hdfDirectory)
+
+        self.ancFilePath = pathlib.Path(ancFilePath)
+        self.validateFileExists(self.ancFilePath)
+
+        self.postProcessingDir = pathlib.Path(postProcessingDir)
+        self.validateFileExists(self.postProcessingDir)
 
         self._outDir = pathlib.Path(outputDir)
+        self.validateFileExists(self._outDir)
 
         self._year = year
 
@@ -78,6 +115,7 @@ class GlobalSevenClassMap(object):
 
         if self._debug:
             self._logger.debug(self.hdfDirectory)
+            self._logger.debug(self.ancFilePath)
             self._logger.debug(self._outDir)
             self._logger.debug(self._year)
             self._logger.debug(self._sensor)
@@ -122,7 +160,8 @@ class GlobalSevenClassMap(object):
                 sevenClassNoShorelineProducts)
 
             # Write out the VRT to disk
-            self._warpAndWriteSinu(sevenClassGlobalVrt, globalNoShorePathSinu)
+            self._warpAndWriteSinu(sevenClassGlobalVrt,
+                                   globalNoShorePathSinu)
 
         # Warp sinu global product to wgs84
         if globalNoShorePathWgs84.exists():
@@ -142,7 +181,11 @@ class GlobalSevenClassMap(object):
             self._warpAndWriteWgs84(globalNoShorePathSinu,
                                     globalNoShorePathWgs84)
 
-        self._generateGlobalWithShoreline(globalNoShorePathWgs84)
+        globalNoShoreArrayMasked = self._applyCorrectingMask(
+            globalNoShorePathWgs84)
+
+        self._generateGlobalWithShoreline(globalNoShoreArrayMasked,
+                                          globalNoShorePathWgs84)
 
     # -------------------------------------------------------------------------
     # _extractSevenClassFromHdfAndWriteWithNoShoreline
@@ -243,6 +286,21 @@ class GlobalSevenClassMap(object):
 
         del sevenClassDataset
 
+        # ---
+        # Get tile-ID from the HDF file name
+        # Ex: MOD44W.A2022001.h09v05.061.2024008133218.hdf, h09v05
+        # ---
+        tile = hdfProduct.name.split('.')[2]
+
+        if self._debug:
+            self._logger.debug(tile)
+
+        # If antarctic tile, mask dynamic product with static (in place)
+        if tile[3:] in self.ANTARCTIC_EXCLUSION:
+            if self._debug:
+                self._logger.debug(f'Tile {tile} in Antarctica, masking')
+            self._maskAntarcticTile(tile, sevenClassDatasetAttributes)
+
         # Revert the shoreline, write to an in-memory dataset.
         sevenClassNoShoreArray = self._revertShoreline(
             sevenClassDatasetAttributes)
@@ -253,6 +311,28 @@ class GlobalSevenClassMap(object):
             sevenClassDatasetAttributes)
 
         return sevenClassNoShorelinePath
+
+    # -------------------------------------------------------------------------
+    # _maskAntarcticTile
+    # -------------------------------------------------------------------------
+    def _maskAntarcticTile(self, tile: str,
+                           sevenClassDatasetAttributes: dict) -> None:
+        """
+        This function converts the predicted seven class for an antarctic tile
+        and masks with the static seven class map.
+        """
+
+        postProcessingArray = QAMap._getPostProcessingMask(
+            tile,
+            self.postProcessingDir)
+
+        staticSevenArray = SevenClassMap._extractSevenClassArray(
+            postProcessingArray, tile)
+
+        sevenClassDatasetAttributes['ndarray'] = staticSevenArray
+
+        np.testing.assert_equal(sevenClassDatasetAttributes['ndarray'],
+                                staticSevenArray)
 
     # -------------------------------------------------------------------------
     # _getSevenClassSubDataset
@@ -544,13 +624,123 @@ class GlobalSevenClassMap(object):
             raise RuntimeError(errorMsg)
 
     # -------------------------------------------------------------------------
-    # _generateGlobalWithShoreline
+    # _applyCorrectingMask
     # -------------------------------------------------------------------------
-    def _generateGlobalWithShoreline(self, globalNoShorePath: pathlib.Path) \
+    def _applyCorrectingMask(self, globalNoShorePath: pathlib.Path) \
             -> None:
         """
-        Given a global SC product with no shoreline, breaks up the array
-        and performs the shoreline algorithms and adds the result to the
+        Given a global SC product with no shoreline, applies a corrective mask
+        which fixes reprojection artifacts seen to be present in the
+        reprojected product.
+        """
+
+        # Open and get attributes of the reprojected product
+        globalSevenClassNoShoreline = gdal.Open(str(globalNoShorePath),
+                                                gdal.GA_ReadOnly)
+
+        globalSevenClassNoShorelineAttributes = self._getRasterAndAttributes(
+            globalSevenClassNoShoreline)
+
+        if self._debug:
+            self._logger.debug(globalSevenClassNoShorelineAttributes)
+
+        globalSevenClassNoShorelineArray = \
+            globalSevenClassNoShorelineAttributes['ndarray'].astype(
+                self.SC_DTYPE)
+
+        # Open and get attributes of the corrective mask
+        correctiveMask = gdal.Open(str(self.ancFilePath),
+                                   gdal.GA_ReadOnly)
+
+        correctiveMaskAttributes = self._getRasterAndAttributes(
+            correctiveMask)
+
+        if self._debug:
+            self._logger.debug(correctiveMaskAttributes)
+
+        correctiveMaskArray = \
+            correctiveMaskAttributes['ndarray'].astype(
+                self.SC_DTYPE)
+
+        # START OCEAN FILL FIXING
+        oceanFillMask = correctiveMaskArray & \
+            GlobalSevenClassMap.SEVEN_CLASS_RESERVED_BITS
+
+        # Any pixels where global SC is no-data and corrective mask exists
+        oceanFillConditional = (globalSevenClassNoShorelineArray ==
+                                self.SC_NODATA)
+
+        if self._debug:
+            self._logger.debug('Ocean fill mask attrs')
+            self._logger.debug(
+                f'\tOcean fills: {np.count_nonzero(oceanFillConditional)}')
+
+        # Where above conditional, use anc mask values instead of global SC
+        globalSCArrayCorrected = np.where(oceanFillConditional,
+                                          oceanFillMask,
+                                          globalSevenClassNoShorelineArray)
+
+        del oceanFillConditional
+        # END OCEAN FILL FIXING
+
+        # START EDGE FIXING
+        correctiveMaskSevenClass = (
+            correctiveMaskArray & GlobalSevenClassMap.CORRECTIVE_BIT_MASK) >> 4
+
+        if self._debug:
+            self._logger.debug('Corrective seven class mask attrs')
+            self._logger.debug(f'\tMax: {correctiveMaskSevenClass.max()}')
+            self._logger.debug(f'\tMin: {correctiveMaskSevenClass.min()}')
+
+        globalSCArrayCorrected = np.where(correctiveMaskSevenClass > 0,
+                                          correctiveMaskSevenClass,
+                                          globalSCArrayCorrected)
+
+        del correctiveMaskSevenClass
+        # END EDGE FIXING
+
+        # SIBERIA WATER FLIPPING
+        siberianInlandBox = correctiveMaskArray >> 7
+
+        if self._debug:
+            self._logger.debug('Siberian mask attrs')
+            self._logger.debug(f'\tMax: {siberianInlandBox.max()}')
+            self._logger.debug(f'\tMin: {siberianInlandBox.min()}')
+            assert siberianInlandBox.max() == 1
+
+        waterFlipConditional = (
+            globalSevenClassNoShorelineArray == 0) & (siberianInlandBox == 1)
+
+        if self._debug:
+            waterFlips = np.count_nonzero(waterFlipConditional)
+            self._logger.debug(f'Water flips: {waterFlips}')
+
+        globalSCArrayCorrected = np.where(
+            waterFlipConditional, 3, globalSCArrayCorrected
+        )
+
+        del siberianInlandBox
+        # END SIBERIA WATER FLIPPING
+
+        # START ITERATIVE INLAND OCEAN-ADJ FLIPPING
+        for iter in range(0, self.NUM_INLAND_OC_ADJ_ITERS):
+            self._logger.debug(f'Inland Ocean-Adj iter: {iter}')
+
+            globalSCArrayCorrected = self.replaceAdjacentThrees(
+                globalSCArrayCorrected)
+        # END ITERATIVE INLAND OCEAN-ADJ FLIPPING
+
+        return globalSCArrayCorrected
+
+    # -------------------------------------------------------------------------
+    # _generateGlobalWithShoreline
+    # -------------------------------------------------------------------------
+    def _generateGlobalWithShoreline(self,
+                                     globalNoShoreCorrectedArray: np.ndarray,
+                                     globalNoShorePath: pathlib.Path) -> None:
+        """
+        Given a corrected global SC product with no shoreline, breaks up the
+        array and performs the shoreline algorithms and adds the result to the
         global SC product. Writes it out.
         """
 
@@ -575,13 +765,11 @@ class GlobalSevenClassMap(object):
         if self._debug:
             self._logger.debug(globalSevenClassNoShorelineAttributes)
 
-        globalSevenClassNoShorelineArray = \
-            globalSevenClassNoShorelineAttributes['ndarray'].astype(
-                self.SC_DTYPE)
-
+        # Apply shoreline alg to the corrected array
         sevenClassWithShorelineArray = self._generateShorelineParallel(
-            globalSevenClassNoShorelineArray)
+            globalNoShoreCorrectedArray)
 
+        # Write out the results using the no-shore global product attrs
         self._writeGlobalShoreline(globalShorelinePath,
                                    sevenClassWithShorelineArray,
                                    globalSevenClassNoShorelineAttributes)
@@ -606,15 +794,6 @@ class GlobalSevenClassMap(object):
             dtype=self.SC_DTYPE,
         )
 
-        if self._debug:
-
-            sevenClassWithShorelineArrayPath = 'sevenClassParallel.npy'
-
-            self._logger.debug(f'Saving to {sevenClassWithShorelineArrayPath}')
-
-            np.save(sevenClassWithShorelineArrayPath,
-                    sevenClassWithShoreline.astype(self.SC_DTYPE))
-
         return sevenClassWithShoreline
 
     # -------------------------------------------------------------------------
@@ -636,14 +815,24 @@ class GlobalSevenClassMap(object):
 
         shallow = GlobalSevenClassMap.extractValueFromSevenClass(0,
                                                                  sevenClass)
+        moderate = GlobalSevenClassMap.extractValueFromSevenClass(6,
+                                                                  sevenClass)
+        deep = GlobalSevenClassMap.extractValueFromSevenClass(7,
+                                                              sevenClass)
+
+        # ---
+        # Combine shallow, moderate, and deep classes into a single
+        # binary array
+        # ---
+        ocean = shallow | moderate | deep
 
         shorelineInland = GlobalSevenClassMap.shoreline(inland)
 
-        shorelineShallow = GlobalSevenClassMap.shoreline(shallow)
+        shorelineOcean = GlobalSevenClassMap.shoreline(ocean)
 
         shoreLine = GlobalSevenClassMap.postProcessShoreline(
             shorelineInland,
-            shorelineShallow,
+            shorelineOcean,
             sevenClass)
 
         scWithShoreLine = GlobalSevenClassMap.addShorelineToSevenClass(
@@ -819,6 +1008,44 @@ class GlobalSevenClassMap(object):
         band.SetMetadata(bandMeta)
 
         band.SetDescription(bandDescription)
+
+    # -------------------------------------------------------------------------
+    # validateFileExists
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def validateFileExists(filepath: pathlib.Path) -> None:
+        """
+        Checks if file exists, if not raises the appropriate message
+        """
+
+        if not filepath.exists():
+            raise FileNotFoundError(str(filepath))
+
+    # -------------------------------------------------------------------------
+    # replaceAdjacentThrees
+    # -------------------------------------------------------------------------
+    @staticmethod
+    def replaceAdjacentThrees(arr):
+        # Define a mask for values 0, 6, and 7
+        ocean_mask = np.isin(arr, GlobalSevenClassMap.OCEAN_SET)
+
+        # Create a mask for elements equal to 3
+        threes_mask = (arr == 3)
+
+        # Create a mask for elements adjacent to 3s
+        adjacent_mask = np.zeros_like(arr, dtype=bool)
+        adjacent_mask[:-1, :] |= ocean_mask[1:, :]  # Check element below
+        adjacent_mask[1:, :] |= ocean_mask[:-1, :]  # Check element above
+        adjacent_mask[:, :-1] |= ocean_mask[:, 1:]  # Check element right
+        adjacent_mask[:, 1:] |= ocean_mask[:, :-1]  # Check element left
+
+        # Apply the mask for values 0, 6, and 7 and adjacent 3s
+        replace_mask = threes_mask & adjacent_mask
+
+        # Replace values with 10 where the mask is True
+        arr[replace_mask] = GlobalSevenClassMap.REPLACEMENT_VALUE
+
+        return arr
 
 
 if __name__ == '__main__':
