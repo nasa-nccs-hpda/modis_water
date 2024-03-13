@@ -74,10 +74,10 @@ class Utils(object):
     def getPostStr():
         sdtdate = datetime.datetime.now()
         year = sdtdate.year
-        hm = sdtdate.strftime('%H%M')
+        hms = sdtdate.strftime('%H%M%S')
         sdtdate = sdtdate.timetuple()
         jdate = sdtdate.tm_yday
-        post_str = '{}{:03}{}'.format(year, jdate, hm)
+        post_str = '{}{:03}{}'.format(year, jdate, hms)
         return post_str
 
     # -------------------------------------------------------------------------

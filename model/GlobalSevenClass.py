@@ -16,6 +16,7 @@ from skimage.util import apply_parallel
 from core.model.SystemCommand import SystemCommand
 from modis_water.model.SevenClass import SevenClassMap
 from modis_water.model.QAMap import QAMap
+from modis_water.model.Utils import Utils
 
 os.environ['USE_PYGEOS'] = '0'
 
@@ -33,6 +34,10 @@ class GlobalSevenClassMap(object):
     HDF_SUBDATASET_PRE_STR: str = 'HDF4_EOS:EOS_GRID:"'
 
     HDF_SEVENCLASS_POST_STR: str = '":MOD44W_250m_GRID:seven_class'
+
+    OUTPUT_PRE_NAME: str = 'MOD44WA1'
+
+    OUTPUT_WGS: str = 'Global-WGS84'
 
     # ---
     # Excude the PEP rules violation of going past 80 chars -
@@ -81,6 +86,18 @@ class GlobalSevenClassMap(object):
 
     NUM_INLAND_OC_ADJ_ITERS: int = 10
 
+    # These were sourced from gdalinfo'ing C61 L2G MOD09GA
+    MODIS_500M_RESOLUTION: int = 463.312716527916507
+
+    MODIS_1KM_RESOLUTION: float = 926.625433055833014
+
+    # These were sourced from what 2022s reprojected from sinu to ll
+    WGS84_250M_RESOLUTION: float = 0.002083333333146
+
+    WGS84_500M_RESOLUTION: float = 0.004166666666294
+
+    WGS84_1KM_RESOLUTION: float = 0.008333333332587
+
     # -------------------------------------------------------------------------
     # __init__
     # -------------------------------------------------------------------------
@@ -89,7 +106,9 @@ class GlobalSevenClassMap(object):
                  ancFilePath: str,
                  postProcessingDir: str,
                  year: int, sensor,
+                 tr: str,
                  outputDir: str,
+                 version: str,
                  logger: logging.Logger,
                  debug: bool = False) -> None:
 
@@ -105,9 +124,24 @@ class GlobalSevenClassMap(object):
         self._outDir = pathlib.Path(outputDir)
         self.validateFileExists(self._outDir)
 
+        self._tr = tr
+        if self._tr == '1km':
+            self._targetResolution = self.MODIS_1KM_RESOLUTION
+            self._wgs84TargetResolution = self.WGS84_1KM_RESOLUTION
+        elif self._tr == '500m':
+            self._targetResolution = self.MODIS_500M_RESOLUTION
+            self._wgs84TargetResolution = self.WGS84_500M_RESOLUTION
+        elif self._tr == '250m':
+            self._targetResolution = None
+            self._wgs84TargetResolution = self.WGS84_250M_RESOLUTION
+        else:
+            raise RuntimeError('Expected target resolution of 250m|500m|1km')
+
         self._year = year
 
         self._sensor = sensor
+
+        self._version = version
 
         self._logger = logger
 
@@ -118,7 +152,9 @@ class GlobalSevenClassMap(object):
             self._logger.debug(self.ancFilePath)
             self._logger.debug(self._outDir)
             self._logger.debug(self._year)
+            self._logger.debug(self._targetResolution)
             self._logger.debug(self._sensor)
+            self._logger.debug(self._version)
 
     # -------------------------------------------------------------------------
     # generateGlobalSevenClass
@@ -133,13 +169,12 @@ class GlobalSevenClassMap(object):
             self._extractSevenClassFromHdfAndWriteWithNoShoreline()
 
         # Global no-shoreline in sinusoidal projection path
-        globalNoShorePathSinu = self._buildOutputGlobalName(
-            sevenClassNoShorelineProducts[0], wgs84=False)
+        globalNoShorePathSinu = self._buildOutputGlobalName(shoreline=False,
+                                                            wgs84=False)
 
         # Global no-shoreline in wgs84 projection path
-        globalNoShorePathWgs84 = self._buildOutputGlobalName(
-            sevenClassNoShorelineProducts[0], wgs84=True
-        )
+        globalNoShorePathWgs84 = self._buildOutputGlobalName(shoreline=False,
+                                                             wgs84=True)
 
         # Write out vrt in sinu projection
         if globalNoShorePathSinu.exists():
@@ -510,24 +545,22 @@ class GlobalSevenClassMap(object):
     # -------------------------------------------------------------------------
     def _buildOutputGlobalName(
             self,
-            sevenClassSamplePath: pathlib.Path,
+            shoreline: bool = False,
             wgs84: bool = False) -> pathlib.Path:
         """
-        Builds the output global seven-class without shoreline raster path.
+        Builds the output global seven-class.
         """
 
-        sevenClassSampleName = sevenClassSamplePath.stem
+        proj = 'WGS84' if wgs84 else 'SINU'
 
-        nameSplitNoTile = sevenClassSampleName.split('.')[:2] + \
-            sevenClassSampleName.split('.')[3:]
+        timeStamp = Utils.getPostStr()
 
-        nameNoTile = '.'.join(nameSplitNoTile)
+        if not shoreline:
+            timeStamp = f'{timeStamp}.NoShoreline'
 
-        proj = 'wgs84' if wgs84 else 'sinu'
+        yearProjTRStr = f'A{self._year}001.061.Global-{proj}.{self._tr}'
 
-        finalName = nameNoTile.replace(
-            'NoShoreline',
-            f'AnnualSevenClass.NoShoreline.global.{proj}')
+        finalName = f'{self.OUTPUT_PRE_NAME}.{yearProjTRStr}.{timeStamp}'
 
         finalSevenClassGlobalPath = self._outDir / f'{finalName}.tif'
 
@@ -576,9 +609,17 @@ class GlobalSevenClassMap(object):
         """
         Given a VRT, runs gdal warp to write out the VRT to disk in sinu proj.
         """
+        if self._targetResolution:
+
+            tr_str = f"-tr {self._targetResolution} {self._targetResolution}"
+            warp_str = f"-of Gtiff {tr_str} -co COMPRESS=LZW"
+        else:
+            warp_str = "-of GTiff -co COMPRESS=LZW"
+
+        self._logger.info(f"Warp option SINU: {warp_str}")
 
         warpOptions = gdal.WarpOptions(
-            gdal.ParseCommandLine("-of Gtiff -co COMPRESS=LZW"))
+            gdal.ParseCommandLine(warp_str))
 
         self._logger.info(f'Warping VRT to disk with {warpOptions}')
 
@@ -605,7 +646,10 @@ class GlobalSevenClassMap(object):
         Reprojects the global seven-class (no shoreline) from sinu to wgs84.
         """
 
-        warpCmd = 'gdalwarp -of GTiff -co COMPRESS=LZW -t_srs EPSG:4326'
+        tStr = f'-tr {self._wgs84TargetResolution} ' + \
+            f'{self._wgs84TargetResolution}'
+        options = f'-of GTiff {tStr} -co COMPRESS=LZW -t_srs EPSG:4326'
+        warpCmd = f'gdalwarp {options}'
 
         warpCmd = warpCmd + f' {inputSevenClassGlobalPath}' + \
             f' {outputSevenClassGlobalPath}'
@@ -744,8 +788,8 @@ class GlobalSevenClassMap(object):
         global SC product. Writes it out.
         """
 
-        globalShorelinePath = self._outDir / \
-            globalNoShorePath.name.replace('NoShoreline', 'Shoreline')
+        globalShorelinePath = self._buildOutputGlobalName(shoreline=True,
+                                                          wgs84=True)
 
         if globalShorelinePath.exists():
 
@@ -986,7 +1030,7 @@ class GlobalSevenClassMap(object):
 
         bandMeta = globalSevenClassAttributesDict['band_metadata']
 
-        bandDescription = globalSevenClassAttributesDict['band_description']
+        bandDescription = f'MOD44W global 7-class version {self._version}'
 
         ds = driver.Create(str(globalShorelinePath), cols, rows,
                            1, gdal.GDT_Byte, options=['COMPRESS=LZW'])

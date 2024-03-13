@@ -34,6 +34,8 @@ class GlobalSevenClassMapTestCase(unittest.TestCase):
             postProcessingDir='/path/to/pp/dir',
             year=2023,
             sensor='MOD',
+            tr='250m',
+            version='000',
             outputDir='/path/to/output/dir',
             logger=logger,
             debug=True
@@ -88,6 +90,8 @@ class GlobalSevenClassMapTestCase(unittest.TestCase):
             postProcessingDir='/path/to/pp/dir',
             year=2023,
             sensor='MYD',
+            tr='500m',
+            version='000',
             outputDir='/path/to/output/dir',
             logger=logger,
             debug=True
@@ -109,42 +113,6 @@ class GlobalSevenClassMapTestCase(unittest.TestCase):
             scGlobalMapInstance._validateNumberOfNoShorelineProducts(
                 noShorelineProducts
             )
-
-    # -------------------------------------------------------------------------
-    # testBuildOutputGlobalName
-    # -------------------------------------------------------------------------
-    @patch('modis_water.model.GlobalSevenClass.GlobalSevenClassMap.validateFileExists')
-    def testBuildOutputGlobalName(self, mock_validate_file_exists):
-        # Mock the validateFileExists method to do nothing
-        mock_validate_file_exists.side_effect = lambda filepath: None
-
-        # Create an instance of GlobalSevenClassMap
-        scGlobalMapInstance = GlobalSevenClassMap(
-            hdfDirectory='/path/to/hdf/dir',
-            ancFilePath='/path/to/anc/dir/mask',
-            postProcessingDir='/path/to/pp/dir',
-            year=2023,
-            sensor='MOD',
-            outputDir='/path/to/output/dir',
-            logger=logger,
-            debug=True
-        )
-
-        # Create a mock pathlib.Path object
-        mockSevenClassSamplePath = pathlib.Path(
-            '/path/to/sample/NoShoreline.Sample.tif')
-
-        # Call the function under test
-        output_path = scGlobalMapInstance._buildOutputGlobalName(
-            mockSevenClassSamplePath)
-
-        # Expected output path
-        expectedOutputPath = pathlib.Path('/path/to/output/dir/' +
-                                          'AnnualSevenClass.NoShoreline.' +
-                                          'global.sinu.Sample.tif')
-
-        # Assertions
-        self.assertEqual(output_path, expectedOutputPath)
 
     # -------------------------------------------------------------------------
     # testPostProcessShoreline

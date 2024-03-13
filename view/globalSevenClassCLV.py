@@ -51,9 +51,19 @@ def main():
                         type=int,
                         help='Year to process')
 
+    parser.add_argument('-tr',
+                        required=False,
+                        default='250m',
+                        type=str,
+                        help='Sinusoidal target resolution: [250m, 500m, 1km]')
+
     parser.add_argument('-o',
                         default='.',
                         help='Output directory')
+
+    parser.add_argument('-v',
+                        default='043',
+                        help='7-class version number')
 
     args = parser.parse_args()
 
@@ -91,7 +101,9 @@ def main():
                                                args.postprocessing,
                                                args.y,
                                                sensor,
+                                               args.tr,
                                                args.o,
+                                               args.v,
                                                logger,
                                                args.debug)
 
