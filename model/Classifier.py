@@ -185,8 +185,10 @@ class Classifier(object):
             self._logger.info('Generating mask')
 
         maskGen = MaskGenerator(bandDict)
-        generalMask = maskGen.generateGeneralMask(
-            self._debug)   # int64, bandDict int16
+        
+        # int64, bandDict int16
+        generalMask = maskGen.generateGeneralMask(self._debug)
+            
         landMask = maskGen.generateLandMask(self._debug)
 
         if self._debug:
