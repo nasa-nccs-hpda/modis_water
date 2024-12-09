@@ -51,17 +51,19 @@ class Utils(object):
     # -------------------------------------------------------------------------
     @staticmethod
     def writeRaster(outDir, pixels, name, cols=0, rows=0, projection=None,
-                    transform=None):
+                    transform=None, dType: int = gdal.GDT_Int16):
 
         cols = pixels.shape[0]
         rows = pixels.shape[1] if len(pixels.shape) > 1 else 1
         imageName = os.path.join(outDir, name + '.tif')
         driver = gdal.GetDriverByName('GTiff')
 
-        ds = driver.Create(imageName, cols, rows, 1, gdal.GDT_Int16,
+        ds = driver.Create(imageName, cols, rows, 1, dtype,
                            options=['COMPRESS=LZW'])
+
         if projection:
             ds.SetProjection(projection)
+
         if transform:
             ds.SetGeoTransform(transform)
 
@@ -85,12 +87,16 @@ class Utils(object):
     # -------------------------------------------------------------------------
     @staticmethod
     def getStaticDatasetPath(inDir, searchTerm) -> str:
-        searchPath = os.path.join(
-            inDir, searchTerm)
+        
+        searchPath = os.path.join(inDir, searchTerm)
         staticPath = glob.glob(searchPath)
+
         if len(staticPath) > 0:
+
             staticPath = staticPath[0]
             return staticPath
+
         else:
+
             msg = '{} not found.'.format(searchPath)
             raise FileNotFoundError(msg)

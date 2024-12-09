@@ -4,6 +4,7 @@ import re
 import numpy as np
 
 from osgeo import gdal
+from osgeo import gdal_array
 from osgeo.osr import SpatialReference
 
 from modis_water.model.BandReader import BandReader as br
@@ -41,7 +42,9 @@ class Classifier(object):
                  sensors=br.SENSORS,
                  debug=False,
                  inBands=br.ALL_BANDS,
-                 generateMasks=True):
+                 generateMasks=True,
+                 dataType: int = np.int16,
+                 noData: int = None):
 
         # ---
         # Validate output directory.
@@ -109,16 +112,22 @@ class Classifier(object):
 
         self._logger = logger
         self._generateMasks = generateMasks
-        self._debug = debug
+        self._debug: bool = debug
+        self._npDt: int = dataType
+        self._gdalDt = gdal_array.NumericTypeCodeToGDALTypeCode(self._npDt)
+        self._noData: int = noData or Classifier.NO_DATA
 
     # -------------------------------------------------------------------------
     # computeNdvi
     # -------------------------------------------------------------------------
     def computeNdvi(self, sr1, sr2):
 
-        # return ((sr2 - sr1) / (sr2 + sr1)) * 10000
+        # ndvi_unfiltered = \
+        #     (((sr2 - sr1) / (sr2 + sr1)) * 10000).astype(np.int16)
+
         ndvi_unfiltered = \
-            (((sr2 - sr1) / (sr2 + sr1)) * 10000).astype(np.int16)
+            (((sr2 - sr1) / (sr2 + sr1)) * 10000).astype(self._npDt)
+
         ndvi = np.where(sr1 + sr2 != 0, ndvi_unfiltered, 0)
         return ndvi
 
@@ -131,19 +140,19 @@ class Classifier(object):
 
         driver = gdal.GetDriverByName('GTiff')
 
-        ds = driver.Create(name, br.COLS, br.ROWS, 1, gdal.GDT_Int16,
+        ds = driver.Create(name, br.COLS, br.ROWS, 1, self._gdalDt,
                            options=['COMPRESS=LZW'])
 
         ds.SetSpatialRef(MODIS_SINUSOIDAL_6842)
         ds.SetGeoTransform(self._bandReader.getXform())
         ds.SetProjection(self._bandReader.getProj())
-        ds.GetRasterBand(1).SetNoDataValue(Classifier.NO_DATA)
+        ds.GetRasterBand(1).SetNoDataValue(self._noData)
         ds.WriteRaster(0, 0, br.COLS, br.ROWS, predictions.tobytes())
 
         if self._debug and self._logger:
 
-            self._logger.info('Writing image as ' + str(gdal.GDT_Int16))
-            self._logger.info('GDT_Int16 is ' + str(gdal.GDT_Int16))
+            self._logger.info('Writing image as ' + str(self._gdalDt))
+            self._logger.info('GDT_Int16 is ' + str(self._gdalDt))
 
     # -------------------------------------------------------------------------
     # createOutputImageName
@@ -221,16 +230,17 @@ class Classifier(object):
         if self._logger:
             self._logger.info('Masking')
 
-        generalMaskedImage = np.where(generalMask == MaskGenerator.GOOD_DATA,
-                                      predictedImage,
-                                      Classifier.BAD_DATA).astype(np.int16)
+        generalMaskedImage = \
+            np.where(generalMask == MaskGenerator.GOOD_DATA,
+                     predictedImage,
+                     Classifier.BAD_DATA).astype(self._npDt)
                                       
         predictedLandAndMasked = ((generalMaskedImage == Classifier.LAND) &
                                   (landMask == MaskGenerator.BAD_DATA))
 
         finalImage = np.where(predictedLandAndMasked,
                               Classifier.BAD_DATA,
-                              generalMaskedImage).astype(np.int16)
+                              generalMaskedImage).astype(self._npDt)
 
         self._createOutputImage(outName, finalImage)
 
@@ -313,4 +323,4 @@ class Classifier(object):
     def _writeBands(self, bandDict):
 
         for k in bandDict:
-            Utils.writeRaster(self._outDir, bandDict[k], k)
+            Utils.writeRaster(self._outDir, bandDict[k], k, dType=self._gdalDt)
