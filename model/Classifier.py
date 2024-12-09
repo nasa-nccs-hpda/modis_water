@@ -224,8 +224,10 @@ class Classifier(object):
         generalMaskedImage = np.where(generalMask == MaskGenerator.GOOD_DATA,
                                       predictedImage,
                                       Classifier.BAD_DATA).astype(np.int16)
+                                      
         predictedLandAndMasked = ((generalMaskedImage == Classifier.LAND) &
                                   (landMask == MaskGenerator.BAD_DATA))
+
         finalImage = np.where(predictedLandAndMasked,
                               Classifier.BAD_DATA,
                               generalMaskedImage).astype(np.int16)
