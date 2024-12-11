@@ -3,6 +3,8 @@ import datetime
 import os
 import glob
 
+import numpy as np
+
 from osgeo import gdal
 
 
@@ -51,29 +53,30 @@ class Utils(object):
     # -------------------------------------------------------------------------
     @staticmethod
     def writeRaster(outDir, pixels, name, cols=0, rows=0, projection=None,
-                    transform=None, dType: int = gdal.GDT_Int16):
+                    transform=None):
 
         cols = pixels.shape[0]
         rows = pixels.shape[1] if len(pixels.shape) > 1 else 1
         imageName = os.path.join(outDir, name + '.tif')
         driver = gdal.GetDriverByName('GTiff')
 
-        ds = driver.Create(imageName, cols, rows, 1, dtype,
+        ds = driver.Create(imageName, cols, rows, 1, gdal.GDT_Int16,
                            options=['COMPRESS=LZW'])
 
         if projection:
             ds.SetProjection(projection)
-
+            
         if transform:
             ds.SetGeoTransform(transform)
 
         ds.WriteRaster(0, 0, cols, rows, pixels.tobytes())
 
     # -------------------------------------------------------------------------
-    # _getPostStr()
+    # getPostStr
     # -------------------------------------------------------------------------
     @staticmethod
     def getPostStr():
+        
         sdtdate = datetime.datetime.now()
         year = sdtdate.year
         hm = sdtdate.strftime('%H%M')

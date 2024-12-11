@@ -107,7 +107,7 @@ class BandReader(object):
     # The argument "read" can be set to false to produce a list of potential
     # files, which is useful for testing.  ListExpectedFiles uses this.
     # -------------------------------------------------------------------------
-    def read(self, sensor, year, tile, day, read=True):
+    def read(self, sensor, year, tile, day, read=True) -> dict:
 
         self._validate(sensor, year, tile, day)
 
@@ -153,7 +153,7 @@ class BandReader(object):
     # -------------------------------------------------------------------------
     # _readBandsFromHdfs
     # -------------------------------------------------------------------------
-    def _readBandsFromHdfs(self, hdfFiles, bands, setXform=False):
+    def _readBandsFromHdfs(self, hdfFiles, bands, setXform=False) -> dict:
 
         # ---
         # We use abbreviated band names elsewhere, but we must use full names

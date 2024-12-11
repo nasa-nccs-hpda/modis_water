@@ -43,7 +43,7 @@ class MaskGenerator(object):
     # -------------------------------------------------------------------------
     # generateGeneralMask
     # -------------------------------------------------------------------------
-    def generateGeneralMask(self, debug=False):
+    def generateGeneralMask(self, debug=False) -> np.ndarray:
 
         # Apply the rules.
         mask = np.where(
@@ -63,7 +63,7 @@ class MaskGenerator(object):
     # -------------------------------------------------------------------------
     # generateLandMask
     # -------------------------------------------------------------------------
-    def generateLandMask(self, debug=False):
+    def generateLandMask(self, debug=False) -> np.ndarray:
 
         # Apply the rules.
         mask = np.where(
