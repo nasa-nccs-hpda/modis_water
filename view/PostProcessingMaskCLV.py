@@ -10,7 +10,22 @@ from modis_water.model.PostProcessingGenerator import PostProcessingMap
 # -----------------------------------------------------------------------------
 # main
 #
-# python modis_water/view/PostProcessingMaskCLV.py
+# Example usage:
+# STATIC_DIR="MODIS_Seven_Class_maxextent_v70.0.1"
+# DEM_DIR="/panfs/ccds02/nobackup/projects/ilab/data/MODIS/ancillary/MODIS_GMTED_DEM_slope/MODIS_GMTED_DEM_slope_v61.0.0"  # noqa: E501
+# ANC_DIR="/panfs/ccds02/nobackup/projects/ilab/data/MODIS/ancillary/MODIS_ancillary_data/MODIS_ancillary_data_v70.0.0"  # noqa: E501
+# IMP_DIR="/panfs/ccds02/nobackup/projects/ilab/data/MODIS/ancillary/MODIS_impervious_data/MODIS_impervious_data_v61.0.0"  # noqa: E501
+# PRM_DIR="/panfs/ccds02/nobackup/projects/ilab/data/MODIS/ancillary/MODIS_permanent_rivers/MODIS_permanent_rivers_v61.0.0"  # noqa: E501
+#
+# singularity exec -B /explore,/panfs,/css,/nfs4m --env PYTHONPATH=$PWD:$PWD/modis_water:$PWD/core /explore/nobackup/projects/ilab/containers/modis-water-4.0.0-2024.02 \  # noqa: E501
+#     python modis_water/view/PostProcessingMaskCLV.py \
+#     -t $1 \
+#     -o test_output \
+#     -impervious ${IMP_DIR} \
+#     -permanent ${PRM_DIR} \
+#     -gmted ${DEM_DIR} \
+#     -ancillary ${ANC_DIR} \
+#     -sevenclass ${STATIC_DIR}
 # -----------------------------------------------------------------------------
 def main():
     # Process command-line args.
