@@ -31,7 +31,6 @@ def main():
     parser = argparse.ArgumentParser(description=desc)
 
     parser.add_argument('--classifier',
-                        required=True,
                         default='simple',
                         choices=['simple', 'rf'],
                         help='Choose which classifier to use')

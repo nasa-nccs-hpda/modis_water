@@ -3,6 +3,8 @@ import datetime
 import os
 import glob
 
+import numpy as np
+
 from osgeo import gdal
 
 
@@ -60,18 +62,21 @@ class Utils(object):
 
         ds = driver.Create(imageName, cols, rows, 1, gdal.GDT_Int16,
                            options=['COMPRESS=LZW'])
+
         if projection:
             ds.SetProjection(projection)
+            
         if transform:
             ds.SetGeoTransform(transform)
 
         ds.WriteRaster(0, 0, cols, rows, pixels.tobytes())
 
     # -------------------------------------------------------------------------
-    # _getPostStr()
+    # getPostStr
     # -------------------------------------------------------------------------
     @staticmethod
     def getPostStr():
+        
         sdtdate = datetime.datetime.now()
         year = sdtdate.year
         hm = sdtdate.strftime('%H%M')
@@ -85,12 +90,16 @@ class Utils(object):
     # -------------------------------------------------------------------------
     @staticmethod
     def getStaticDatasetPath(inDir, searchTerm) -> str:
-        searchPath = os.path.join(
-            inDir, searchTerm)
+        
+        searchPath = os.path.join(inDir, searchTerm)
         staticPath = glob.glob(searchPath)
+
         if len(staticPath) > 0:
+
             staticPath = staticPath[0]
             return staticPath
+
         else:
+
             msg = '{} not found.'.format(searchPath)
             raise FileNotFoundError(msg)

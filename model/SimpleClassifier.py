@@ -35,6 +35,9 @@ class SimpleClassifier(Classifier):
     # -------------------------------------------------------------------------
     def _runOneSensorOneDay(self, bandDict, outName):
 
+        # Mark requested this currently unused variable to be defined.
+        red = bandDict[br.SR1]
+        
         # Name the arrays as named in water_change.c
         nir = bandDict[br.SR2]
         blue = bandDict[br.SR3]

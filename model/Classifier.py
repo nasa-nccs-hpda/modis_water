@@ -1,9 +1,11 @@
 import os
+from pathlib import Path
 import re
 
 import numpy as np
 
 from osgeo import gdal
+from osgeo import gdal_array
 from osgeo.osr import SpatialReference
 
 from modis_water.model.BandReader import BandReader as br
@@ -27,6 +29,8 @@ class Classifier(object):
     LAND = 0
     WATER = 1
 
+    MODIS_SINUSOIDAL_6842 = SpatialReference(            'PROJCS["Sinusoidal",GEOGCS["GCS_Undefined",DATUM["Undefined",SPHEROID["User_Defined_Spheroid",6371007.181,0.0]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Sinusoidal"],PARAMETER["False_Easting",0.0],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",0.0],UNIT["Meter",1.0]]')  # noqa: E501
+
     # -------------------------------------------------------------------------
     # __init__
     # -------------------------------------------------------------------------
@@ -41,7 +45,10 @@ class Classifier(object):
                  sensors=br.SENSORS,
                  debug=False,
                  inBands=br.ALL_BANDS,
-                 generateMasks=True):
+                 generateMasks=True,
+                 dataType: int = np.int16,
+                 noData: int = None,
+                 badData: int = None):
 
         # ---
         # Validate output directory.
@@ -109,16 +116,20 @@ class Classifier(object):
 
         self._logger = logger
         self._generateMasks = generateMasks
-        self._debug = debug
+        self._debug: bool = debug
+        self._npDt: int = dataType
+        self._gdalDt = gdal_array.NumericTypeCodeToGDALTypeCode(self._npDt)
+        self._noData: int = noData or Classifier.NO_DATA
+        self._badData: int = badData or Classifier.BAD_DATA
 
     # -------------------------------------------------------------------------
     # computeNdvi
     # -------------------------------------------------------------------------
     def computeNdvi(self, sr1, sr2):
 
-        # return ((sr2 - sr1) / (sr2 + sr1)) * 10000
         ndvi_unfiltered = \
-            (((sr2 - sr1) / (sr2 + sr1)) * 10000).astype(np.int16)
+            (((sr2 - sr1) / (sr2 + sr1)) * 10000).astype(self._npDt)
+
         ndvi = np.where(sr1 + sr2 != 0, ndvi_unfiltered, 0)
         return ndvi
 
@@ -127,29 +138,21 @@ class Classifier(object):
     # -------------------------------------------------------------------------
     def _createOutputImage(self, name, predictions):
 
-        # ---
-        # Please allow this exception from PEP rules.  Splitting this into
-        # 79-character lines and using line continuations will make this mess
-        # of quotes even trickier.
-        # ---
-        MODIS_SINUSOIDAL_6842 = SpatialReference(
-            'PROJCS["Sinusoidal",GEOGCS["GCS_Undefined",DATUM["Undefined",SPHEROID["User_Defined_Spheroid",6371007.181,0.0]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Sinusoidal"],PARAMETER["False_Easting",0.0],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",0.0],UNIT["Meter",1.0]]')
-
         driver = gdal.GetDriverByName('GTiff')
 
-        ds = driver.Create(name, br.COLS, br.ROWS, 1, gdal.GDT_Int16,
+        ds = driver.Create(name, br.COLS, br.ROWS, 1, self._gdalDt,
                            options=['COMPRESS=LZW'])
 
-        ds.SetSpatialRef(MODIS_SINUSOIDAL_6842)
+        ds.SetSpatialRef(Classifier.MODIS_SINUSOIDAL_6842)
         ds.SetGeoTransform(self._bandReader.getXform())
         ds.SetProjection(self._bandReader.getProj())
-        ds.GetRasterBand(1).SetNoDataValue(Classifier.NO_DATA)
+        ds.GetRasterBand(1).SetNoDataValue(self._noData)
         ds.WriteRaster(0, 0, br.COLS, br.ROWS, predictions.tobytes())
 
         if self._debug and self._logger:
 
-            self._logger.info('Writing image as ' + str(gdal.GDT_Int16))
-            self._logger.info('GDT_Int16 is ' + str(gdal.GDT_Int16))
+            self._logger.info('Writing image as ' + str(self._gdalDt))
+            self._logger.info('GDT_Int16 is ' + str(self._gdalDt))
 
     # -------------------------------------------------------------------------
     # createOutputImageName
@@ -185,16 +188,17 @@ class Classifier(object):
             self._logger.info('Generating mask')
 
         maskGen = MaskGenerator(bandDict)
-        generalMask = maskGen.generateGeneralMask(
-            self._debug)   # int64, bandDict int16
-        landMask = maskGen.generateLandMask(self._debug)
+        
+        # int64, bandDict int16
+        generalMask: np.ndarray = maskGen.generateGeneralMask(self._debug)
+        landMask: np.ndarray = maskGen.generateLandMask(self._debug)
 
         if self._debug:
 
             if self._logger:
                 self._logger.info('Mask type: ' + str(generalMask.dtype))
 
-            Utils.writeRaster(self._outDir, maskGen, 'GeneralMask')
+            Utils.writeRaster(self._outDir, generalMask, 'GeneralMask')
             Utils.writeRaster(self._outDir, landMask, 'LandMask')
 
         # ---
@@ -225,14 +229,17 @@ class Classifier(object):
         if self._logger:
             self._logger.info('Masking')
 
-        generalMaskedImage = np.where(generalMask == MaskGenerator.GOOD_DATA,
-                                      predictedImage,
-                                      Classifier.BAD_DATA).astype(np.int16)
+        generalMaskedImage = \
+            np.where(generalMask == MaskGenerator.GOOD_DATA,
+                     predictedImage,
+                     Classifier.BAD_DATA).astype(self._npDt)
+                                      
         predictedLandAndMasked = ((generalMaskedImage == Classifier.LAND) &
                                   (landMask == MaskGenerator.BAD_DATA))
+
         finalImage = np.where(predictedLandAndMasked,
-                              Classifier.BAD_DATA,
-                              generalMaskedImage).astype(np.int16)
+                              self._badData,
+                              generalMaskedImage).astype(self._npDt)
 
         self._createOutputImage(outName, finalImage)
 
@@ -271,7 +278,7 @@ class Classifier(object):
 
                         if self._debug:
                             self._writeBands(bandDict)
-
+                            
                         if len(bandDict) > 0:
 
                             self._maskClassifyWrite(bandDict, outName)
@@ -314,5 +321,31 @@ class Classifier(object):
     # -------------------------------------------------------------------------
     def _writeBands(self, bandDict):
 
-        for k in bandDict:
-            Utils.writeRaster(self._outDir, bandDict[k], k)
+        outName: Path = Path(self._outDir) / ('bands.tif')
+        numBands = len(bandDict)
+        cols, rows = list(bandDict.values())[0].shape
+        
+        ds = gdal.GetDriverByName('GTiff').Create(
+            str(outName),
+            rows,
+            cols,
+            numBands,
+            gdal.GDT_Int16,
+            options=['BIGTIFF=YES'])
+
+        ds.SetSpatialRef(Classifier.MODIS_SINUSOIDAL_6842)
+        ds.SetGeoTransform(self._bandReader.getXform())
+        ds.SetProjection(self._bandReader.getProj())
+        outBandIndex = 0
+
+        for band in bandDict:
+            
+            outBandIndex += 1
+            gdBand = ds.GetRasterBand(outBandIndex)
+            gdBand.WriteArray(bandDict[band])
+            gdBand.SetMetadataItem('Name', band)
+            gdBand.FlushCache()
+            gdBand = None
+
+        ds = None
+        
