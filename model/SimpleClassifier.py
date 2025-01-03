@@ -74,7 +74,7 @@ class SimpleClassifier(Classifier):
                 (ndvi >= 4125)
 
         land5 = (swir5 >= 1017) & (nir >= 1777)
-
+        
         waterConditions = water1 | water2
         landConditions = land1 | land2 | land3 | land4 | land5
 
