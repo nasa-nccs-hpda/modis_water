@@ -276,8 +276,8 @@ class Classifier(object):
                                                          self._tile,
                                                          day)
 
-                        if self._debug:
-                            self._writeBands(bandDict)
+                        # if self._debug:
+                        #     self._writeBands(bandDict)
                             
                         if len(bandDict) > 0:
 
@@ -319,33 +319,32 @@ class Classifier(object):
     # -------------------------------------------------------------------------
     # _writeBands
     # -------------------------------------------------------------------------
-    def _writeBands(self, bandDict):
-
-        outName: Path = Path(self._outDir) / ('bands.tif')
-        numBands = len(bandDict)
-        cols, rows = list(bandDict.values())[0].shape
-        
-        ds = gdal.GetDriverByName('GTiff').Create(
-            str(outName),
-            rows,
-            cols,
-            numBands,
-            gdal.GDT_Int16,
-            options=['BIGTIFF=YES'])
-
-        ds.SetSpatialRef(Classifier.MODIS_SINUSOIDAL_6842)
-        ds.SetGeoTransform(self._bandReader.getXform())
-        ds.SetProjection(self._bandReader.getProj())
-        outBandIndex = 0
-
-        for band in bandDict:
-            
-            outBandIndex += 1
-            gdBand = ds.GetRasterBand(outBandIndex)
-            gdBand.WriteArray(bandDict[band])
-            gdBand.SetMetadataItem('Name', band)
-            gdBand.FlushCache()
-            gdBand = None
-
-        ds = None
-        
+    # def _writeBands(self, bandDict):
+    #
+    #     outName: Path = Path(self._outDir) / ('bands.tif')
+    #     numBands = len(bandDict)
+    #     cols, rows = list(bandDict.values())[0].shape
+    #
+    #     ds = gdal.GetDriverByName('GTiff').Create(
+    #         str(outName),
+    #         rows,
+    #         cols,
+    #         numBands,
+    #         gdal.GDT_Int16,
+    #         options=['BIGTIFF=YES'])
+    #
+    #     ds.SetSpatialRef(Classifier.MODIS_SINUSOIDAL_6842)
+    #     ds.SetGeoTransform(self._bandReader.getXform())
+    #     ds.SetProjection(self._bandReader.getProj())
+    #     outBandIndex = 0
+    #
+    #     for band in bandDict:
+    #
+    #         outBandIndex += 1
+    #         gdBand = ds.GetRasterBand(outBandIndex)
+    #         gdBand.WriteArray(bandDict[band])
+    #         gdBand.SetMetadataItem('Name', band)
+    #         gdBand.FlushCache()
+    #         gdBand = None
+    #
+    #     ds = None        

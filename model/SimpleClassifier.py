@@ -18,11 +18,18 @@ class SimpleClassifier(Classifier):
     def __init__(self, year, tile, outDir, modDir, startDay=1, endDay=365,
                  logger=None, sensors=set([br.MOD]), debug=False):
 
-        super(SimpleClassifier, self). \
-            __init__(year, tile, outDir, modDir, startDay, endDay, logger,
-                     sensors, debug,
-                     [br.SOLZ, br.STATE, br.SR1, br.SR2, br.SR3, br.SR4,
-                      br.SR5, br.SR6, br.SR7])
+        super(SimpleClassifier, self).__init__(year, 
+                                               tile, 
+                                               outDir, 
+                                               modDir, 
+                                               startDay, 
+                                               endDay, 
+                                               logger,
+                                               sensors, 
+                                               debug,
+                                               [br.SOLZ, br.STATE, br.SR1,
+                                                br.SR2, br.SR3, br.SR4,
+                                                br.SR5, br.SR6, br.SR7])
 
     # -------------------------------------------------------------------------
     # getClassifierName
