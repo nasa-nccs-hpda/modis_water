@@ -54,4 +54,4 @@ jobs:
           context: .
           file: ./requirements/Dockerfile
           push: true
-          tags: nasanccs/modis-vcf:latest
+          tags: nasanccs/modis-water:latest
