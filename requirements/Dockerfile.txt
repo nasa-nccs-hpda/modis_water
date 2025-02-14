@@ -113,7 +113,7 @@ RUN pip --no-cache-dir install \
 RUN mkdir -p "/usr/local/ilab" && \
     git clone --single-branch --branch main https://github.com/nasa-nccs-hpda/core.git \
         /usr/local/ilab/core && \
-    git clone --single-branch --branch main https://github.com/nasa-nccs-hpda/modis_water.git \
+    git clone --single-branch --branch master https://github.com/nasa-nccs-hpda/modis_water.git \
         /usr/local/ilab/modis_water
 
 HEALTHCHECK NONE
