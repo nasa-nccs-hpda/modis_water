@@ -1,7 +1,7 @@
 
 import numpy as np
 
-from modis_water.model.BandReader import BandReader as br
+from modis_water.model.BandReader import BandReader
 from modis_water.model.Classifier import Classifier
 
 
@@ -15,21 +15,32 @@ class SimpleClassifier(Classifier):
     # -------------------------------------------------------------------------
     # __init__
     # -------------------------------------------------------------------------
-    def __init__(self, year, tile, outDir, modDir, startDay=1, endDay=365,
-                 logger=None, sensors=set([br.MOD]), debug=False):
+    def __init__(self, 
+                 br: BandReader, 
+                 year, 
+                 tile, 
+                 outDir, 
+                 sensors, 
+                 startDay=1,
+                 endDay=365, 
+                 logger=None, 
+                 debug=False):
 
-        super(SimpleClassifier, self).__init__(year, 
-                                               tile, 
-                                               outDir, 
-                                               modDir, 
-                                               startDay, 
-                                               endDay, 
-                                               logger,
-                                               sensors, 
-                                               debug,
-                                               [br.SOLZ, br.STATE, br.SR1,
-                                                br.SR2, br.SR3, br.SR4,
-                                                br.SR5, br.SR6, br.SR7])
+        inBands=[BandReader.SOLZ, BandReader.STATE, BandReader.SR1,
+                 BandReader.SR2, BandReader.SR3, BandReader.SR4,
+                 BandReader.SR5, BandReader.SR6, BandReader.SR7]
+
+        super(SimpleClassifier, self).__init__(br=br,
+                                               year=year, 
+                                               tile=tile, 
+                                               outDir=outDir, 
+                                               inBands=inBands,
+                                               sensors=sensors, 
+                                               # modDir,
+                                               startDay=startDay, 
+                                               endDay=endDay, 
+                                               logger=logger,
+                                               debug=debug)
 
     # -------------------------------------------------------------------------
     # getClassifierName
@@ -43,13 +54,13 @@ class SimpleClassifier(Classifier):
     def _runOneSensorOneDay(self, bandDict, outName):
 
         # Mark requested this currently unused variable to be defined.
-        red = bandDict[br.SR1]
+        red = bandDict[BandReader.SR1]
         
         # Name the arrays as named in water_change.c
-        nir = bandDict[br.SR2]
-        blue = bandDict[br.SR3]
-        swir5 = bandDict[br.SR5]
-        swir7 = bandDict[br.SR7]
+        nir = bandDict[BandReader.SR2]
+        blue = bandDict[BandReader.SR3]
+        swir5 = bandDict[BandReader.SR5]
+        swir7 = bandDict[BandReader.SR7]
 
         # ---
         # Add NDVI to bandDict.
@@ -58,8 +69,11 @@ class SimpleClassifier(Classifier):
         # The NDVI conditions listed in water_change.c are multiplied
         # by 10,000 to match the range of the computed NDVI.
         # ---
-        ndvi = self.computeNdvi(bandDict[br.SR1], bandDict[br.SR2])
-        ndviBadCalculation = (bandDict[br.SR1] + bandDict[br.SR2]) == 0
+        ndvi = self.computeNdvi(bandDict[BandReader.SR1],
+                                bandDict[BandReader.SR2])
+                                
+        ndviBadCalculation = (bandDict[BandReader.SR1] +
+                              bandDict[BandReader.SR2]) == 0
 
         # ---
         # Define the rules as masks.
@@ -86,9 +100,13 @@ class SimpleClassifier(Classifier):
         landConditions = land1 | land2 | land3 | land4 | land5
 
         # Apply the model.
-        predictions = np.full((br.COLS, br.ROWS), Classifier.NO_DATA)
+        predictions = np.full((self._bandReader.getCols(), 
+                               self._bandReader.getRows()), 
+                               Classifier.NO_DATA)
+                               
         predictions[waterConditions] = Classifier.WATER  # 1
         predictions[landConditions] = Classifier.LAND    # 0
+        
         predictions = np.where(ndviBadCalculation,
                                Classifier.NO_DATA,
                                predictions)

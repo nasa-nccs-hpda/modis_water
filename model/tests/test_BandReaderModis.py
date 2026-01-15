@@ -1,30 +1,30 @@
 import logging
+from pathlib import Path
 import sys
 import unittest
 
 from modis_water.model.BandReader import BandReader
+from modis_water.model.BandReaderModis import BandReaderModis
 
 logger = logging.getLogger()
 logger.level = logging.DEBUG
 
 
 # -----------------------------------------------------------------------------
-# class BandReaderTestCase
+# class BandReaderModisTestCase
 #
 # python -m unittest discover model/tests/
-# python -m unittest modis_water.model.tests.test_BandReader
+# python -m unittest modis_water.model.tests.test_BandReaderModis
 # -----------------------------------------------------------------------------
-class BandReaderTestCase(unittest.TestCase):
+class BandReaderModisTestCase(unittest.TestCase):
 
     # -------------------------------------------------------------------------
     # testValidInit
     # -------------------------------------------------------------------------
     def testValidInit(self):
 
-        BandReader('/css/modis/Collection6.1/L2G', bands=None, logger=None)
-        BandReader('/css/modis/Collection6.1/L2G',
-                   bands=[BandReader.SENZ, BandReader.SR1], logger=None)
-
+        BandReaderModis(Path('/css/modis/Collection6.1/L2G'), logger=None)
+                        
     # -------------------------------------------------------------------------
     # testReadFiles
     # -------------------------------------------------------------------------
@@ -33,11 +33,9 @@ class BandReaderTestCase(unittest.TestCase):
         streamHandler = logging.StreamHandler(sys.stdout)
         logger.addHandler(streamHandler)
 
-        br = BandReader('/css/modis/Collection6.1/L2G',
-                        [BandReader.SENZ, BandReader.SR1],
-                        logger)
-
-        bandDict = br.read(BandReader.MOD, 2003, 'h09v05', 161)
+        br = BandReaderModis(Path('/css/modis/Collection6.1/L2G'), logger)
+        br.setBands([BandReader.SENZ, BandReader.SR1])
+        bandDict = br.read(BandReaderModis.MOD, 2003, 161, 'h09v05')
         print('bandDict:', bandDict)
 
         self.assertTrue(BandReader.SENZ in bandDict)

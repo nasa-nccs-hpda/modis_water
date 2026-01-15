@@ -34,17 +34,30 @@ class BurnScarMap(object):
         exclusionTile = tile[3:] in BurnScarMap.EXCLUSION_TILES
 
         try:
-            subdirhdfs = BurnScarMap._getAllFiles(
-                path=mcdDir, year=year, tile=tile)
-            burnScarMapList = [BurnScarMap._getMatFromHDF(
-                subdir, 'Burn Date', 'Uncertainty') for subdir in subdirhdfs]
+            
+            subdirhdfs = BurnScarMap._getAllFiles(path=mcdDir, 
+                                                  year=year, 
+                                                  tile=tile)
+                
+            burnScarMapList = \
+                [BurnScarMap._getMatFromHDF(subdir, 
+                                            'Burn Date', 
+                                            'Uncertainty') \
+                    for subdir in subdirhdfs]
+
         except FileNotFoundError:
+
             msg = 'MCD64A1 not found for {}.'.format(tile)
+
             if exclusionTile:
+
                 if logger:
                     logger.info(msg + ' Using empty burn scar product.')
+
                 burnScarMapList = []
+
             else:
+
                 raise FileNotFoundError(msg)
 
         outputAnnualMask = BurnScarMap._logicalOrMask(burnScarMapList)
@@ -79,10 +92,14 @@ class BurnScarMap(object):
     # -------------------------------------------------------------------------
     @staticmethod
     def _getAllFiles(path, year, tile):
+
         pathToPrepend = os.path.join(path, str(year))
+
         try:
             subdirs = sorted(os.listdir(pathToPrepend))
+
         except FileNotFoundError:
+
             msg = 'Could not find dirs in {}'.format(pathToPrepend)
             raise FileNotFoundError(msg)
 
@@ -91,6 +108,7 @@ class BurnScarMap(object):
         try:
             subdirhdfs = [glob(os.path.join(subdir, '*{}*'.format(tile)))[0]
                           for subdir in subdirs]
+
         except IndexError:
             raise FileNotFoundError()
 

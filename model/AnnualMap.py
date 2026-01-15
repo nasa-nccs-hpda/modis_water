@@ -20,9 +20,15 @@ class AnnualMap(object):
     # accumulateDays
     # -------------------------------------------------------------------------
     @staticmethod
-    def accumulateDays(dailyDir, year, tile, sensor, classifierName, logger):
+    def accumulateDays(dailyDir, 
+                       year, 
+                       tile, 
+                       sensor, 
+                       classifierName, 
+                       logger,
+                       bandReader: BandReader):
 
-        shape = (BandReader.COLS, BandReader.ROWS)
+        shape = (bandReader.getCols(), bandReader.getRows())
         sumWater = np.zeros(shape, dtype=np.int16)
         sumLand = np.zeros(shape, dtype=np.int16)
         sumBad = np.zeros(shape, dtype=np.int16)
@@ -113,7 +119,13 @@ class AnnualMap(object):
     # createAnnualMap
     # -------------------------------------------------------------------------
     @staticmethod
-    def createAnnualMap(dailyDir, year, tile, sensor, classifierName, logger,
+    def createAnnualMap(dailyDir, 
+                        year, 
+                        tile, 
+                        sensor, 
+                        classifierName, 
+                        logger,
+                        bandReader: BandReader,
                         georeferenced=False):
 
         sumWater, sumLand, sumObs, probWater, mask = \
@@ -122,10 +134,14 @@ class AnnualMap(object):
                                      tile,
                                      sensor,
                                      classifierName,
-                                     logger)
+                                     logger,
+                                     bandReader)
+                                     
         if georeferenced:
+            
             projection, transform = AnnualMap.getGeospatialInformation(
                 dailyDir, year, tile, sensor, classifierName)
+
         else:
             projection, transform = None, None
 
@@ -146,6 +162,7 @@ class AnnualMap(object):
 
         name = Utils.getImageName(
             year, tile, sensor, classifierName, None, 'Mask')
+            
         return os.path.join(dailyDir, name + '.tif')
 
     # -------------------------------------------------------------------------
@@ -153,14 +170,20 @@ class AnnualMap(object):
     # -------------------------------------------------------------------------
     @staticmethod
     def getGeospatialInformation(dailyDir, year, tile, sensor, classifierName):
+        
         imageName = os.path.join(dailyDir, Utils.getImageName(
             year, tile, sensor, classifierName, day='***') + '.tif')
+        
         oneDailyFileList = glob.glob(imageName)
+        
         try:
             oneDailyFile = oneDailyFileList[0]
+        
         except IndexError:
+        
             msg = 'Could not find any daily files: {}'.format(imageName)
             raise RuntimeError(msg)
+        
         ds = GeospatialImageFile(oneDailyFile).getDataset()
         transform = ds.GetGeoTransform()
         projection = ds.GetProjection()

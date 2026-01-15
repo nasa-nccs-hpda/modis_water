@@ -54,34 +54,43 @@ class SevenClassMap(object):
     # generateSevenClass
     # -------------------------------------------------------------------------
     @staticmethod
-    def generateSevenClass(
-            sensor,
-            year,
-            tile,
-            postProcessingDir,
-            annualProductPath,
-            classifierName,
-            outDir,
-            logger,
-            geoTiff=False,
-            georeferenced=False):
+    def generateSevenClass(sensor,
+                           year,
+                           tile,
+                           postProcessingDir,
+                           annualProductPath,
+                           classifierName,
+                           outDir,
+                           logger,
+                           bandReader: BandReader,
+                           geoTiff=False,
+                           georeferenced=False):
 
         annualProductDataset = gdal.Open(annualProductPath)
-        annualProductArray = annualProductDataset.GetRasterBand(
-            1).ReadAsArray()
-        transform = annualProductDataset.GetGeoTransform() \
-            if georeferenced else None
-        projection = annualProductDataset.GetProjection() \
-            if georeferenced else None
+        
+        annualProductArray = \
+            annualProductDataset.GetRasterBand(1).ReadAsArray()
+        
+        transform = \
+            annualProductDataset.GetGeoTransform() if georeferenced else None
+        
+        projection = \
+            annualProductDataset.GetProjection() if georeferenced else None
 
-        outputSevenClassArray = np.zeros((BandReader.COLS, BandReader.ROWS))
+        outputSevenClassArray = \
+            np.zeros((bandReader.getCols(), bandReader.getRows()))
 
         # Search and read in annual product and static seven-class.
-        postProcessingArray = QAMap._getPostProcessingMask(
-            tile,
-            postProcessingDir)
-        staticSevenArray = SevenClassMap._extractSevenClassArray(
-            postProcessingArray)
+        postProcessingArray = \
+            QAMap._getPostProcessingMask(tile, 
+                                         postProcessingDir,
+                                         bandReader.getCols(),
+                                         bandReader.getRows())
+            
+        staticSevenArray = \
+            SevenClassMap._extractSevenClassArray(postProcessingArray,
+                                                  bandReader.getCols(),
+                                                  bandReader.getRows())
 
         restArray = annualProductArray.copy()
 
@@ -162,21 +171,27 @@ class SevenClassMap(object):
     # _extractSevenClassArray
     # -------------------------------------------------------------------------
     @staticmethod
-    def _extractSevenClassArray(postProcessingMask: np.ndarray) -> np.ndarray:
+    def _extractSevenClassArray(postProcessingMask: np.ndarray,
+                                cols: int,
+                                rows: int) -> np.ndarray:
+        
         scBitMaskDict = SevenClassMap.SEVEN_CLASS_BIT_MASK_DICT
         scNoDataBitMask = QAMap.ANC_NODATA_BIT_MASK
-        scDataArray = np.zeros(
-            (BandReader.COLS, BandReader.ROWS), dtype=SevenClassMap.DTYPE)
+        scDataArray = np.zeros((cols, rows), dtype=SevenClassMap.DTYPE)
+        
         for sevenClassValue in scBitMaskDict.keys():
+            
             bitMask = scBitMaskDict[sevenClassValue]
             condition = (postProcessingMask & bitMask) == bitMask
-            scDataArray = np.where(condition, sevenClassValue,
-                                   scDataArray)
-        noDataCondition = (postProcessingMask & scNoDataBitMask) == \
-            scNoDataBitMask
+            scDataArray = np.where(condition, sevenClassValue, scDataArray)
+                                   
+        noDataCondition = \
+            (postProcessingMask & scNoDataBitMask) == scNoDataBitMask
+
         scDataArray = np.where(noDataCondition,
                                SevenClassMap.NODATA,
                                scDataArray)
+                               
         return scDataArray
 
     # -------------------------------------------------------------------------

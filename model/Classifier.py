@@ -8,7 +8,7 @@ from osgeo import gdal
 from osgeo import gdal_array
 from osgeo.osr import SpatialReference
 
-from modis_water.model.BandReader import BandReader as br
+from modis_water.model.BandReader import BandReader
 from modis_water.model.MaskGenerator import MaskGenerator
 from modis_water.model.Utils import Utils
 
@@ -35,16 +35,19 @@ class Classifier(object):
     # __init__
     # -------------------------------------------------------------------------
     def __init__(self,
+                 br: BandReader,
                  year,
                  tile,
                  outDir,
-                 modDir,
+                 inBands,
+                 sensors,
+                 # modDir,
                  startDay=1,
                  endDay=365,
                  logger=None,
-                 sensors=br.SENSORS,
+                 # sensors=BandReader.sensors(),
                  debug=False,
-                 inBands=br.ALL_BANDS,
+                 # inBands=BandReader.ALL_BANDS,
                  generateMasks=True,
                  dataType: int = np.int16,
                  noData: int = None,
@@ -67,7 +70,7 @@ class Classifier(object):
         # ---
         # Validate sensors.
         # ---
-        invalidSensors = sensors - br.SENSORS
+        invalidSensors = sensors - br.sensors()
 
         if invalidSensors:
             raise RuntimeError('Invalid sensors: ' + str(invalidSensors))
@@ -102,9 +105,10 @@ class Classifier(object):
         # Set the bands.  MaskGenerator needs a certain set of bands.  Ensure
         # those are read, too.
         # ---
-        bands = br.ALL_BANDS if inBands is None else set(inBands)
+        bands = BandReader.ALL_BANDS if inBands is None else set(inBands)
         bands = bands.union(MaskGenerator.REQUIRED_BANDS)
-        self._bandReader = br(modDir, bands)
+        self._bandReader = br
+        self._bandReader.setBands(bands)
 
         # ---
         # Set the days.
@@ -140,14 +144,23 @@ class Classifier(object):
 
         driver = gdal.GetDriverByName('GTiff')
 
-        ds = driver.Create(name, br.COLS, br.ROWS, 1, self._gdalDt,
+        ds = driver.Create(name, 
+                           self._bandReader.getCols(), 
+                           self._bandReader.getRows(),
+                           1, 
+                           self._gdalDt,
                            options=['COMPRESS=LZW'])
 
         ds.SetSpatialRef(Classifier.MODIS_SINUSOIDAL_6842)
         ds.SetGeoTransform(self._bandReader.getXform())
         ds.SetProjection(self._bandReader.getProj())
         ds.GetRasterBand(1).SetNoDataValue(self._noData)
-        ds.WriteRaster(0, 0, br.COLS, br.ROWS, predictions.tobytes())
+        
+        ds.WriteRaster(0, 
+                       0, 
+                       self._bandReader.getCols(), 
+                       self._bandReader.getRows(), 
+                       predictions.tobytes())
 
         if self._debug and self._logger:
 
@@ -214,7 +227,8 @@ class Classifier(object):
 
             if self._logger:
 
-                self._logger.info('SR5 type:' + str(bandDict[br.SR5].dtype))
+                self._logger.info('SR5 type:' +
+                                  str(bandDict[BandReader.SR5].dtype))
 
                 self._logger.info('Predictions type: ' +
                                   str(predictedImage.dtype))
@@ -271,14 +285,11 @@ class Classifier(object):
                         if self._logger:
                             self._logger.info('Creating ' + outName)
 
-                        bandDict = self._bandReader.read(sensor,
-                                                         self._year,
-                                                         self._tile,
-                                                         day)
+                        bandDict = self._bandReader.read(sensor=sensor,
+                                                         year=self._year,
+                                                         day=day,
+                                                         tile=self._tile)
 
-                        # if self._debug:
-                        #     self._writeBands(bandDict)
-                            
                         if len(bandDict) > 0:
 
                             self._maskClassifyWrite(bandDict, outName)
@@ -315,36 +326,3 @@ class Classifier(object):
     def _runOneSensorOneDay(self, bandDict, outName):
 
         raise NotImplementedError()
-
-    # -------------------------------------------------------------------------
-    # _writeBands
-    # -------------------------------------------------------------------------
-    # def _writeBands(self, bandDict):
-    #
-    #     outName: Path = Path(self._outDir) / ('bands.tif')
-    #     numBands = len(bandDict)
-    #     cols, rows = list(bandDict.values())[0].shape
-    #
-    #     ds = gdal.GetDriverByName('GTiff').Create(
-    #         str(outName),
-    #         rows,
-    #         cols,
-    #         numBands,
-    #         gdal.GDT_Int16,
-    #         options=['BIGTIFF=YES'])
-    #
-    #     ds.SetSpatialRef(Classifier.MODIS_SINUSOIDAL_6842)
-    #     ds.SetGeoTransform(self._bandReader.getXform())
-    #     ds.SetProjection(self._bandReader.getProj())
-    #     outBandIndex = 0
-    #
-    #     for band in bandDict:
-    #
-    #         outBandIndex += 1
-    #         gdBand = ds.GetRasterBand(outBandIndex)
-    #         gdBand.WriteArray(bandDict[band])
-    #         gdBand.SetMetadataItem('Name', band)
-    #         gdBand.FlushCache()
-    #         gdBand = None
-    #
-    #     ds = None        
