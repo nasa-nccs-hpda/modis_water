@@ -197,18 +197,45 @@ class SevenClassMap(object):
     # -------------------------------------------------------------------------
     # generateShoreline
     # -------------------------------------------------------------------------
+    # @staticmethod
+    # def _generateShoreline(sevenClass):
+    #     inland = (sevenClass == 3)
+    #     inland = np.where(inland, 1, 0)
+    #     shorelineInland = SevenClassMap._shoreline(inland)
+    #     shallow = np.where(sevenClass == 0, 1, 0)
+    #     shorelineShallow = SevenClassMap._shoreline(shallow)
+    #     shoreLine = np.logical_or(shorelineInland, shorelineShallow)
+    #     shoreLine = np.where(shoreLine, 1, 0)
+    #     shoreLine = np.where((shoreLine == 1) & (sevenClass == 1), 1, 0)
+    #     return shoreLine
+
+    # -------------------------------------------------------------------------
+    # generateShoreline
+    # -------------------------------------------------------------------------
     @staticmethod
     def _generateShoreline(sevenClass):
-        inland = (sevenClass == 3)
-        inland = np.where(inland, 1, 0)
-        shorelineInland = SevenClassMap._shoreline(inland)
-        shallow = np.where(sevenClass == 0, 1, 0)
-        shorelineShallow = SevenClassMap._shoreline(shallow)
-        shoreLine = np.logical_or(shorelineInland, shorelineShallow)
+        
+    	# 1. Get Inland boundaries (3)
+    	inland = (sevenClass == 3)
+    	inland = np.where(inland, 1, 0)
+    	shorelineInland = SevenClassMap._shoreline(inland)
+ 
+        # 2. Get Ocean boundaries (Include 0, 6, and 7!)
+        ocean = np.where((sevenClass == 0) | 
+                         (sevenClass == 6) | 
+                         (sevenClass == 7), 1, 0)
+                         
+        shorelineOcean = SevenClassMap._shoreline(ocean)
+        
+        # 3. Combine them
+        shoreLine = np.logical_or(shorelineInland, shorelineOcean)
         shoreLine = np.where(shoreLine, 1, 0)
+        
+        # 4. Only keep boundaries that fall on actual Land (1)
         shoreLine = np.where((shoreLine == 1) & (sevenClass == 1), 1, 0)
+        
         return shoreLine
-
+    
     # -------------------------------------------------------------------------
     # shoreline
     # -------------------------------------------------------------------------
