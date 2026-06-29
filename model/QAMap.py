@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import logging
 
 from osgeo import gdal
@@ -41,8 +42,8 @@ Legend=
 class QAMap(object):
 
     DTYPE: np.dtype = np.uint8
-    NCOLS: int = 4800
-    NROWS: int = 4800
+    # NCOLS: int = 4800
+    # NROWS: int = 4800
 
     ANNUAL_WATER: int = 1
     ANNUAL_LAND: int = 0
@@ -109,22 +110,25 @@ class QAMap(object):
     # generateSevenClass
     # -------------------------------------------------------------------------
     @staticmethod
-    def generateQA(
-            sensor,
-            year,
-            tile,
-            burnedAreaPath,
-            postProcessingDir,
-            annualProductPath,
-            classifierName,
-            outDir,
-            logger,
-            geoTiff=False,
-            georeferenced=False) -> str:
+    def generateQA(sensor,
+                   year,
+                   tile,
+                   burnedAreaPath,
+                   postProcessingDir,
+                   annualProductPath,
+                   classifierName,
+                   outDir,
+                   logger,
+                   bandReader: BandReader,
+                   geoTiff=False,
+                   georeferenced=False) -> str:
 
         # Search for, read in our post processing rasters.
-        postProcessingArray = QAMap._getPostProcessingMask(tile,
-                                                           postProcessingDir)
+        postProcessingArray = \
+            QAMap._getPostProcessingMask(tile,
+                                         postProcessingDir,
+                                         bandReader.getCols(),
+                                         bandReader.getRows())
 
         demSlopeDataArray = QAMap._extractPackedBitBinaryArray(
             postProcessingArray,
@@ -139,7 +143,9 @@ class QAMap(object):
             QAMap.PERMANENT_BIT_MASK)
 
         ancillaryDataArray = \
-            QAMap._extractAncillaryArray(postProcessingArray)
+            QAMap._extractAncillaryArray(postProcessingArray,
+                                         bandReader.getCols(),
+                                         bandReader.getRows())
 
         totalWater = QAMap._getAnnualStatPath(
             year,
@@ -158,10 +164,13 @@ class QAMap(object):
             outDir)
 
         annualProductDataset = gdal.Open(annualProductPath)
-        annualProductArray = annualProductDataset.GetRasterBand(
-            1).ReadAsArray()
+        
+        annualProductArray = \
+            annualProductDataset.GetRasterBand(1).ReadAsArray()
 
-        burnScarArray = QAMap._readAndResample(burnedAreaPath)
+        burnScarArray = QAMap._readAndResample(burnedAreaPath,
+                                               bandReader.getCols(),
+                                               bandReader.getRows())
 
         annualProductOutput = annualProductArray.copy()
         qaOutput = np.zeros(annualProductArray.shape, dtype=QAMap.DTYPE)
@@ -171,6 +180,7 @@ class QAMap(object):
             (permanentWaterArray == QAMap.PERMANENT_WATER_WATER) &
             (totalWater >= 3) &
             (ancillaryDataArray != QAMap.ANCILLARY_LAND))
+            
         qaOutput = np.where(low_confidence_water,
                             QAMap.QA_LOW_CONFIDENCE,
                             qaOutput)
@@ -180,12 +190,14 @@ class QAMap(object):
             (annualProductArray == QAMap.ANNUAL_WATER) &
             (totalWater >= 6) &
             (ancillaryDataArray != QAMap.ANCILLARY_LAND))
+            
         qaOutput = np.where(high_confidence_water,
                             QAMap.QA_HIGH_CONFIDENCE,
                             qaOutput)
 
         # QA Map Case 4, MODIS_water_algorithm_MODIS_v2 1.d.ii.4
         ocean_mask = (ancillaryDataArray == QAMap.ANCILLARY_OCEAN)
+        
         qaOutput = np.where(ocean_mask,
                             QAMap.QA_OCEAN,
                             qaOutput)
@@ -197,8 +209,10 @@ class QAMap(object):
 
         # QA Map Case 6, MODIS_water_algorithm_MODIS_v2 1.d.iii.1-2
         burn_scar_case = (burnScarArray == QAMap.BURN_SCAR)
+        
         annualProductOutput = np.where(
             burn_scar_case, QAMap.ANNUAL_LAND, annualProductOutput)
+        
         qaOutput = np.where(burn_scar_case,
                             QAMap.QA_BURN_SCAR,
                             qaOutput)
@@ -208,6 +222,7 @@ class QAMap(object):
             (burnScarArray == QAMap.BURN_SCAR) &
             (annualProductArray == QAMap.ANNUAL_WATER) &
             (ancillaryDataArray == QAMap.ANCILLARY_WATER))
+        
         annualProductOutput = np.where(
             burn_scar_water_max_extent,
             QAMap.ANNUAL_WATER,
@@ -216,8 +231,10 @@ class QAMap(object):
         # QA Map Case 9
         dem_slope_case = (demSlopeDataArray == QAMap.DEM_SLOPE) & \
             (annualProductArray == QAMap.ANNUAL_WATER)
+        
         annualProductOutput = np.where(
             dem_slope_case, QAMap.ANNUAL_LAND, annualProductOutput)
+        
         qaOutput = np.where(dem_slope_case,
                             QAMap.QA_DEM_SLOPE,
                             qaOutput)
@@ -225,6 +242,7 @@ class QAMap(object):
         # QA map case 5, MODIS_water_algorithm_MODIS_v2 1.d.iv.1
         ocean_mask_no_water = ((annualProductArray == QAMap.ANNUAL_WATER) & (
             totalWater < 3) & (ancillaryDataArray == QAMap.ANCILLARY_OCEAN))
+        
         qaOutput = np.where(ocean_mask_no_water,
                             QAMap.QA_OCEAN_NO_WATER,
                             qaOutput)
@@ -237,12 +255,14 @@ class QAMap(object):
             (annualProductOutput != QAMap.ANNUAL_WATER) &
             (qaOutput != QAMap.QA_DEM_SLOPE) &
             (qaOutput != QAMap.QA_BURN_SCAR))
+        
         qaOutput = np.where(low_confidence_land,
                             QAMap.QA_LOW_CONFIDENCE_LAND,
                             qaOutput)
 
         # High confidence land flip back
         high_confidence_land = (ancillaryDataArray == QAMap.ANCILLARY_LAND)
+        
         annualProductOutput = np.where(
             high_confidence_land,
             QAMap.ANNUAL_LAND,
@@ -252,6 +272,7 @@ class QAMap(object):
         impervious_case = ((imperviousDataArray == QAMap.IMPERVIOUS_SURFACE) &
                            (annualProductOutput == QAMap.ANNUAL_WATER) &
                            (ancillaryDataArray == QAMap.ANCILLARY_WATER))
+        
         qaOutput = np.where(impervious_case, QAMap.QA_IMPERVIOUS, qaOutput)
         annualProductOutput = np.where(impervious_case, 0, annualProductOutput)
 
@@ -264,6 +285,7 @@ class QAMap(object):
             out_of_projection,
             QAMap.ANNUAL_OUT_OF_PROJECTION,
             annualProductOutput)
+        
         qaOutput = np.where(out_of_projection,
                             QAMap.QA_OUT_OF_PROJECTION,
                             qaOutput)
@@ -272,11 +294,13 @@ class QAMap(object):
         annualProductOutputName = \
             '{}44W.A{}.{}.{}.AnnualWaterProduct.{}'.format(
                 sensor, year, tile, classifierName, Utils.getPostStr())
+        
         qaOutputName = '{}44W.A{}.{}.{}.AnnualWaterProductQA.{}'.format(
             sensor, year, tile, classifierName, Utils.getPostStr())
 
         transform = annualProductDataset.GetGeoTransform() \
             if georeferenced else None
+        
         projection = annualProductDataset.GetProjection() \
             if georeferenced else None
 
@@ -303,29 +327,53 @@ class QAMap(object):
     # _getPostProcessingMask
     # -------------------------------------------------------------------------
     @staticmethod
-    def _getPostProcessingMask(tile: str, postProcessingDir: str) \
-            -> np.ndarray:
+    def _getPostProcessingMask(tile: str, 
+                               postProcessingDir: str,
+                               cols: int = BandReader.COLS,
+                               rows: int = BandReader.ROWS) -> np.ndarray:
+            
+        # ---
+        # VIIRS uses lower-resolution masks stored in a subdirectory named
+        # for the dimensions of VIIRS imagery.  This strategy works for any
+        # input resolution.
+        # ---
+        if rows != BandReader.ROWS and cols != BandReader.COLS:
+            
+            subDir = str(rows) + 'x' + str(cols)
+            postProcessingDir = Path(postProcessingDir) / subDir
+                               
         postProcessingSearchTerm = 'postprocess_water_{}.tif'.format(tile)
-        postProcessingDatasetPath = Utils.getStaticDatasetPath(
-            postProcessingDir, postProcessingSearchTerm)
+
+        postProcessingDatasetPath = \
+            Utils.getStaticDatasetPath(postProcessingDir,
+                                       postProcessingSearchTerm)
+
         postProcessingDataset = gdal.Open(postProcessingDatasetPath)
+
         postProcessingDataArray = postProcessingDataset.GetRasterBand(
             1).ReadAsArray()
+
         return postProcessingDataArray
 
     # -------------------------------------------------------------------------
     # _extractAncillaryArray
     # -------------------------------------------------------------------------
     @staticmethod
-    def _extractAncillaryArray(postProcessingMask: np.ndarray) -> np.ndarray:
+    def _extractAncillaryArray(postProcessingMask: np.ndarray,
+                               cols: int,
+                               rows: int) -> np.ndarray:
+        
         ancillaryBitMaskDict = QAMap.ANCILLARY_BIT_MASK_DICT
-        ancillaryDataArray = np.zeros(
-            (BandReader.COLS, BandReader.ROWS), dtype=QAMap.DTYPE)
+        ancillaryDataArray = np.zeros((cols, rows), dtype=QAMap.DTYPE)
         ancillaryDataArray.fill(QAMap.ANC_FILL_VALUE)
+        
         for ancillaryValue in ancillaryBitMaskDict.keys():
+        
             bitMask = ancillaryBitMaskDict[ancillaryValue]
             condition = (postProcessingMask & bitMask) == bitMask
-            ancillaryDataArray = np.where(condition, ancillaryValue,
+        
+            ancillaryDataArray = np.where(condition, 
+                                          ancillaryValue,
                                           ancillaryDataArray)
         return ancillaryDataArray
 
@@ -335,43 +383,62 @@ class QAMap(object):
     @staticmethod
     def _extractPackedBitBinaryArray(postProcessingMask: np.ndarray,
                                      bitMask: int) -> np.ndarray:
+                                     
         extractedBinaryArray = np.where((postProcessingMask &
                                          bitMask) == bitMask, 1, 0)
+
         return extractedBinaryArray.astype(QAMap.DTYPE)
 
     # -------------------------------------------------------------------------
     # _getAnnualStatPath
     # -------------------------------------------------------------------------
     @staticmethod
-    def _getAnnualStatPath(
-            year: int, tile: str, sensor: str,
-            classifierName: str, postFix: str, outputDir: str) -> np.ndarray:
+    def _getAnnualStatPath(year: int, 
+                           tile: str, 
+                           sensor: str,
+                           classifierName: str, 
+                           postFix: str, 
+                           outputDir: str) -> np.ndarray:
+
         name = Utils.getImageName(year,
                                   tile,
                                   sensor,
                                   classifierName,
                                   None,
                                   postFix)
+
         statPath = Utils.getStaticDatasetPath(outputDir, name)
+
         try:
+
             statDataset = gdal.Open(statPath)
-            statDataArray = statDataset.GetRasterBand(
-                1).ReadAsArray()
+            statDataArray = statDataset.GetRasterBand(1).ReadAsArray()
+
         except RuntimeError as e:
+
             msg = f'{str(e)}: Encountered error while trying to open' + \
-                f' {statPath} with GDAL.'
+                  f' {statPath} with GDAL.'
+  
             raise RuntimeError(msg)
+  
         return statDataArray
 
     # -------------------------------------------------------------------------
     # _readAndResample
     # -------------------------------------------------------------------------
     @staticmethod
-    def _readAndResample(filepath: str, bandNum: int = 1) -> np.ndarray:
-        outShape = (BandReader.COLS, BandReader.ROWS)
+    def _readAndResample(filepath: str,
+                         cols: int,
+                         rows: int, 
+                         bandNum: int = 1) -> np.ndarray:
+        
+        outShape = (cols, rows)
         resamplingMethod = rio.enums.Resampling(2)
+        
         with rio.open(filepath) as dataset:
-            band = dataset.read(bandNum, out_shape=outShape,
+            
+            band = dataset.read(bandNum, 
+                                out_shape=outShape,
                                 resampling=resamplingMethod)
         return band
 
@@ -379,22 +446,31 @@ class QAMap(object):
     # writeProduct
     # -------------------------------------------------------------------------
     @staticmethod
-    def _writeProduct(outDir: str, outName: str,
-                      array: np.ndarray, logger: logging.Logger,
-                      projection: str, transform: str,
+    def _writeProduct(outDir: str, 
+                      outName: str,
+                      array: np.ndarray, 
+                      logger: logging.Logger,
+                      projection: str, 
+                      transform: str,
                       geoTiff: bool = False) -> str:
+                      
         cols = array.shape[0]
-        rows = array.shape[1] if len(
-            array.shape) > 1 else 1
+        rows = array.shape[1] if len(array.shape) > 1 else 1
+            
         fileType = '.tif' if geoTiff else '.bin'
         imageName = os.path.join(outDir, outName + fileType)
+        
         driver = gdal.GetDriverByName('GTiff') if geoTiff \
             else gdal.GetDriverByName('ENVI')
+        
         options = ['COMPRESS=LZW'] if geoTiff else []
+        
         ds = driver.Create(imageName, cols, rows, 1, gdal.GDT_Byte,
                            options=options)
+        
         if projection:
             ds.SetProjection(projection)
+        
         if transform:
             ds.SetGeoTransform(transform)
 
@@ -402,6 +478,8 @@ class QAMap(object):
         band.WriteArray(array, 0, 0)
         band = None
         ds = None
+        
         if logger:
             logger.info('Wrote annual QA products to: {}'.format(imageName))
+        
         return imageName

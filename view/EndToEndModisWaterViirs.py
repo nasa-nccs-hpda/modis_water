@@ -6,27 +6,15 @@ from pathlib import Path
 import sys
 
 from modis_water.model.AnnualMap import AnnualMap
-from modis_water.model.BandReaderModis import BandReaderModis
+from modis_water.model.BandReaderViirs import BandReaderViirs
 from modis_water.model.BurnScarMap import BurnScarMap
 from modis_water.model.QAMap import QAMap
-
-# Disabling per comment in README.
-# from modis_water.model.RandomForestClassifier import RandomForestClassifier
-
 from modis_water.model.SevenClass import SevenClassMap
 from modis_water.model.SimpleClassifier import SimpleClassifier
 
 
 # -----------------------------------------------------------------------------
 # main
-#
-# python modis_water/view/EndToEndModisWaterCLV.py -y 2006 -t h09v05 \
-#   --classifier rf \
-#   -static /explore/nobackup/projects/ilab/data/MODIS/ancillary/MODIS_Seven_Class_maxextent \
-#   -dem /explore/nobackup/projects/ilab/data/MODIS/ancillary/MODIS_GMTED_DEM_slope/ \
-#   -burn /css/modis/Collection6/L3/MCD64A1-BurnArea \
-#   -o . \
-#   -mod /css/modis/Collection6.1/L2G
 # -----------------------------------------------------------------------------
 def main():
 
@@ -43,8 +31,8 @@ def main():
     parser.add_argument('--sensor',
                         action='store',
                         nargs='*',
-                        default=['MOD'],
-                        choices=['MOD', 'MYD'],
+                        default=[BandReaderViirs.VNP],
+                        choices=[BandReaderViirs.VNP, BandReaderViirs.VJ1],
                         help='Choose which sensor to use')
 
     parser.add_argument('--debug',
@@ -55,7 +43,7 @@ def main():
                         required=True,
                         help='Path to post processing mask')
 
-    parser.add_argument('-mod',
+    parser.add_argument('-viirs',
                         required=True,
                         help='Path to MODIS MOD09GA and GQ products')
 
@@ -89,7 +77,7 @@ def main():
     # ---
     # BandReader
     # ---
-    br = BandReaderModis(Path(args.mod))
+    br = BandReaderViirs(Path(args.viirs))
     sensors = set(args.sensor) & br.sensors()
     sensorStr = '.'.join(list(sensors))
 
@@ -100,8 +88,7 @@ def main():
     ch.setLevel(logging.INFO)
     
     formatter = logging.Formatter(
-        "%(asctime)s; %(levelname)s; %(message)s", "%Y-%m-%d %H:%M:%S"
-    )
+        "%(asctime)s; %(levelname)s; %(message)s", "%Y-%m-%d %H:%M:%S")
     
     ch.setFormatter(formatter)
     logFileName = f'{args.y}.{args.t}.{args.classifier}{sensorStr}.log'
@@ -112,12 +99,6 @@ def main():
     logger.addHandler(fh)
     
     br.setLogger(logger)
-
-    # ---
-    # Validate day range.
-    # ---
-    # if args.startDay > args.endDay:
-    #     raise ValueError('The start day must be before the end day.')
 
     classifier = None
 
@@ -132,19 +113,6 @@ def main():
                                       endDay=366,  # args.endDay,
                                       logger=logger,
                                       debug=args.debug)
-
-    # Disabled per comment in README.
-    # elif args.classifier == 'rf':
-    #
-    #     classifier = RandomForestClassifier(args.y,
-    #                                         args.t,
-    #                                         args.o,
-    #                                         args.mod,
-    #                                         startDay=1,  # args.startDay,
-    #                                         endDay=366,  # args.endDay,
-    #                                         logger=logger,
-    #                                         sensors=sensors,
-    #                                         debug=args.debug)
 
     classifier.run()
 

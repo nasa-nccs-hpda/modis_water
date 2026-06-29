@@ -54,34 +54,43 @@ class SevenClassMap(object):
     # generateSevenClass
     # -------------------------------------------------------------------------
     @staticmethod
-    def generateSevenClass(
-            sensor,
-            year,
-            tile,
-            postProcessingDir,
-            annualProductPath,
-            classifierName,
-            outDir,
-            logger,
-            geoTiff=False,
-            georeferenced=False):
+    def generateSevenClass(sensor,
+                           year,
+                           tile,
+                           postProcessingDir,
+                           annualProductPath,
+                           classifierName,
+                           outDir,
+                           logger,
+                           bandReader: BandReader,
+                           geoTiff=False,
+                           georeferenced=False):
 
         annualProductDataset = gdal.Open(annualProductPath)
-        annualProductArray = annualProductDataset.GetRasterBand(
-            1).ReadAsArray()
-        transform = annualProductDataset.GetGeoTransform() \
-            if georeferenced else None
-        projection = annualProductDataset.GetProjection() \
-            if georeferenced else None
+        
+        annualProductArray = \
+            annualProductDataset.GetRasterBand(1).ReadAsArray()
+        
+        transform = \
+            annualProductDataset.GetGeoTransform() if georeferenced else None
+        
+        projection = \
+            annualProductDataset.GetProjection() if georeferenced else None
 
-        outputSevenClassArray = np.zeros((BandReader.COLS, BandReader.ROWS))
+        outputSevenClassArray = \
+            np.zeros((bandReader.getCols(), bandReader.getRows()))
 
         # Search and read in annual product and static seven-class.
-        postProcessingArray = QAMap._getPostProcessingMask(
-            tile,
-            postProcessingDir)
-        staticSevenArray = SevenClassMap._extractSevenClassArray(
-            postProcessingArray)
+        postProcessingArray = \
+            QAMap._getPostProcessingMask(tile, 
+                                         postProcessingDir,
+                                         bandReader.getCols(),
+                                         bandReader.getRows())
+            
+        staticSevenArray = \
+            SevenClassMap._extractSevenClassArray(postProcessingArray,
+                                                  bandReader.getCols(),
+                                                  bandReader.getRows())
 
         restArray = annualProductArray.copy()
 
@@ -162,38 +171,71 @@ class SevenClassMap(object):
     # _extractSevenClassArray
     # -------------------------------------------------------------------------
     @staticmethod
-    def _extractSevenClassArray(postProcessingMask: np.ndarray) -> np.ndarray:
+    def _extractSevenClassArray(postProcessingMask: np.ndarray,
+                                cols: int,
+                                rows: int) -> np.ndarray:
+        
         scBitMaskDict = SevenClassMap.SEVEN_CLASS_BIT_MASK_DICT
         scNoDataBitMask = QAMap.ANC_NODATA_BIT_MASK
-        scDataArray = np.zeros(
-            (BandReader.COLS, BandReader.ROWS), dtype=SevenClassMap.DTYPE)
+        scDataArray = np.zeros((cols, rows), dtype=SevenClassMap.DTYPE)
+        
         for sevenClassValue in scBitMaskDict.keys():
+            
             bitMask = scBitMaskDict[sevenClassValue]
             condition = (postProcessingMask & bitMask) == bitMask
-            scDataArray = np.where(condition, sevenClassValue,
-                                   scDataArray)
-        noDataCondition = (postProcessingMask & scNoDataBitMask) == \
-            scNoDataBitMask
+            scDataArray = np.where(condition, sevenClassValue, scDataArray)
+                                   
+        noDataCondition = \
+            (postProcessingMask & scNoDataBitMask) == scNoDataBitMask
+
         scDataArray = np.where(noDataCondition,
                                SevenClassMap.NODATA,
                                scDataArray)
+                               
         return scDataArray
+
+    # -------------------------------------------------------------------------
+    # generateShoreline
+    # -------------------------------------------------------------------------
+    # @staticmethod
+    # def _generateShoreline(sevenClass):
+    #     inland = (sevenClass == 3)
+    #     inland = np.where(inland, 1, 0)
+    #     shorelineInland = SevenClassMap._shoreline(inland)
+    #     shallow = np.where(sevenClass == 0, 1, 0)
+    #     shorelineShallow = SevenClassMap._shoreline(shallow)
+    #     shoreLine = np.logical_or(shorelineInland, shorelineShallow)
+    #     shoreLine = np.where(shoreLine, 1, 0)
+    #     shoreLine = np.where((shoreLine == 1) & (sevenClass == 1), 1, 0)
+    #     return shoreLine
 
     # -------------------------------------------------------------------------
     # generateShoreline
     # -------------------------------------------------------------------------
     @staticmethod
     def _generateShoreline(sevenClass):
-        inland = (sevenClass == 3)
-        inland = np.where(inland, 1, 0)
-        shorelineInland = SevenClassMap._shoreline(inland)
-        shallow = np.where(sevenClass == 0, 1, 0)
-        shorelineShallow = SevenClassMap._shoreline(shallow)
-        shoreLine = np.logical_or(shorelineInland, shorelineShallow)
+        
+    	# 1. Get Inland boundaries (3)
+    	inland = (sevenClass == 3)
+    	inland = np.where(inland, 1, 0)
+    	shorelineInland = SevenClassMap._shoreline(inland)
+ 
+        # 2. Get Ocean boundaries (Include 0, 6, and 7!)
+        ocean = np.where((sevenClass == 0) | 
+                         (sevenClass == 6) | 
+                         (sevenClass == 7), 1, 0)
+                         
+        shorelineOcean = SevenClassMap._shoreline(ocean)
+        
+        # 3. Combine them
+        shoreLine = np.logical_or(shorelineInland, shorelineOcean)
         shoreLine = np.where(shoreLine, 1, 0)
+        
+        # 4. Only keep boundaries that fall on actual Land (1)
         shoreLine = np.where((shoreLine == 1) & (sevenClass == 1), 1, 0)
+        
         return shoreLine
-
+    
     # -------------------------------------------------------------------------
     # shoreline
     # -------------------------------------------------------------------------

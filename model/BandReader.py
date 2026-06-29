@@ -1,6 +1,8 @@
 
-import glob
-import os
+from abc import ABC
+from abc import abstractmethod
+import logging
+from pathlib import Path
 import re
 
 from osgeo import gdal
@@ -9,91 +11,79 @@ from osgeo import gdal
 # -----------------------------------------------------------------------------
 # class BandReader
 #
-# Directory Structure: base-directory/MOD09GA/year
-#                                     MOD09GQ/year
-#                                     MYD09GA/year
-#                                     MYD09GQ/year
-#
-# Base directory: /css/modis/Collection6.1/L2G
+# Especially upon the addition of VIIRS data, a better OO design would include
+# a Band class.
 # -----------------------------------------------------------------------------
-class BandReader(object):
+class BandReader(ABC):
 
     COLS = 4800
     ROWS = COLS
 
     # Bands
-    SENZ = 'SensorZenith_1'
-    SOLZ = 'SolarZenith_1'
-    SR1 = 'sur_refl_b01_1'
-    SR2 = 'sur_refl_b02_1'
-    SR3 = 'sur_refl_b03_1'
-    SR4 = 'sur_refl_b04_1'
-    SR5 = 'sur_refl_b05_1'
-    SR6 = 'sur_refl_b06_1'
-    SR7 = 'sur_refl_b07_1'
-    STATE = 'state_1km_1'
+    SENZ = 'SensorZenith'
+    SOLZ = 'SolarZenith'
+    SR1 = 'sur_refl_b01'
+    SR2 = 'sur_refl_b02'
+    SR3 = 'sur_refl_b03'
+    SR4 = 'sur_refl_b04'
+    SR5 = 'sur_refl_b05'
+    SR6 = 'sur_refl_b06'
+    SR7 = 'sur_refl_b07'
+    STATE = 'state_1km'
 
-    GA_BANDS = set([SENZ, SOLZ, SR3, SR4, SR5, SR6, SR7, STATE])
-    GQ_BANDS = set([SR1, SR2])
-    ALL_BANDS = GA_BANDS | GQ_BANDS
-
-    # Sensors
-    MOD = 'MOD'
-    MYD = 'MYD'
-    SENSORS = set([MOD, MYD])
+    ALL_BANDS = set([SENZ, SOLZ, SR1, SR2, SR3, SR4, SR5, SR6, SR7, STATE])
 
     # -------------------------------------------------------------------------
     # __init__
     # -------------------------------------------------------------------------
-    def __init__(self, baseDir, bands=None, logger=None):
+    def __init__(self, 
+                 baseDir: Path, 
+                 logger: logging.RootLogger = None):
 
-        if not baseDir or \
-            not os.path.exists(baseDir) or \
-                not os.path.isdir(baseDir):
+        if not baseDir or not baseDir.exists() or not baseDir.is_dir():
 
             raise RuntimeError('Base dir., ' +
                                str(baseDir) +
                                ', does not exist.')
 
-        self._baseDir = baseDir
-        self._logger = logger
+        self._bands: list = None
+        self._baseDir: Path = baseDir
+        self._logger: logging.RootLogger = logger
         self._xform = None
         self._proj = None
 
-        # ---
-        # Set the bands.
-        # ---
-        if bands is None:
-
-            self._bands = BandReader.ALL_BANDS
-
-        else:
-
-            setOfBands = set(bands)
-            self._bands = setOfBands.intersection(BandReader.ALL_BANDS)
-
-            if setOfBands != self._bands:
-                if self._logger:
-                    self._logger.WARN('Some input bands are invalid.')
-
+    # -------------------------------------------------------------------------
+    # getBandMap
+    # -------------------------------------------------------------------------
+    @staticmethod
+    @abstractmethod
+    def _getBandMap() -> dict:
+        pass
+        
     # -------------------------------------------------------------------------
     # getBandName
     # -------------------------------------------------------------------------
     @staticmethod
-    def getBandName(bandFile):
+    def getBandName(bandFile: Path):
 
-        band = os.path.splitext(os.path.basename(bandFile))[0]. \
-            split('-')[1]
+        band = bandFile.name.stem.split('-')[1]
 
         return band
 
     # -------------------------------------------------------------------------
-    # getXform
+    # getCols
     # -------------------------------------------------------------------------
-    def getXform(self):
-
-        return self._xform
-
+    def getCols(self) -> int:
+        return BandReader.COLS
+        
+    # -------------------------------------------------------------------------
+    # getFullBandNames
+    # -------------------------------------------------------------------------
+    @staticmethod
+    @abstractmethod
+    def _getFullBandNames() -> dict:
+        pass
+        
     # -------------------------------------------------------------------------
     # getProj
     # -------------------------------------------------------------------------
@@ -102,75 +92,33 @@ class BandReader(object):
         return self._proj
 
     # -------------------------------------------------------------------------
-    # read
-    #
-    # The argument "read" can be set to false to produce a list of potential
-    # files, which is useful for testing.  ListExpectedFiles uses this.
+    # getRows
     # -------------------------------------------------------------------------
-    def read(self, sensor, year, tile, day, read=True) -> dict:
+    def getRows(self) -> int:
+        return BandReader.ROWS
+        
+    # -------------------------------------------------------------------------
+    # getXform
+    # -------------------------------------------------------------------------
+    def getXform(self):
 
-        self._validate(sensor, year, tile, day)
+        return self._xform
 
-        # Define the base glob pattern
-        pattern = str(year)
-
-        if day:
-
-            pattern += str(day).zfill(3)
-
-        else:
-            pattern += '*'
-
-        pattern += '.' + tile + '*.hdf'
-
-        # Do we need GA files, GQ files, or both?
-        gaBands = self._bands & BandReader.GA_BANDS
-        gqBands = self._bands & BandReader.GQ_BANDS
-        bandDict = {}
-
-        if gaBands:
-
-            globDir = os.path.join(self._baseDir,
-                                   sensor + '09GA',
-                                   str(year),
-                                   '*GA.A' + pattern)
-
-            hdfFiles = glob.glob(globDir)
-            bandDict.update(self._readBandsFromHdfs(hdfFiles, gaBands))
-
-        if gqBands:
-
-            globDir = os.path.join(self._baseDir,
-                                   sensor + '09GQ',
-                                   str(year),
-                                   '*GQ.A' + pattern)
-
-            hdfFiles = glob.glob(globDir)
-            bandDict.update(self._readBandsFromHdfs(hdfFiles, gqBands, True))
-
-        return bandDict
-
+    # -------------------------------------------------------------------------
+    # read
+    # -------------------------------------------------------------------------
+    @abstractmethod
+    def read(self, sensor: str, year: int, day: int, tile: str) -> dict:
+        pass
+        
     # -------------------------------------------------------------------------
     # _readBandsFromHdfs
     # -------------------------------------------------------------------------
-    def _readBandsFromHdfs(self, hdfFiles, bands, setXform=False) -> dict:
-
-        # ---
-        # We use abbreviated band names elsewhere, but we must use full names
-        # now.
-        # ---
-        FULL_BAND_NAMES = {
-            BandReader.SENZ: ':MODIS_Grid_1km_2D:SensorZenith_1',
-            BandReader.SOLZ: ':MODIS_Grid_1km_2D:SolarZenith_1',
-            BandReader.SR1: ':MODIS_Grid_2D:sur_refl_b01_1',
-            BandReader.SR2: ':MODIS_Grid_2D:sur_refl_b02_1',
-            BandReader.SR3: ':MODIS_Grid_500m_2D:sur_refl_b03_1',
-            BandReader.SR4: ':MODIS_Grid_500m_2D:sur_refl_b04_1',
-            BandReader.SR5: ':MODIS_Grid_500m_2D:sur_refl_b05_1',
-            BandReader.SR6: ':MODIS_Grid_500m_2D:sur_refl_b06_1',
-            BandReader.SR7: ':MODIS_Grid_500m_2D:sur_refl_b07_1',
-            BandReader.STATE: ':MODIS_Grid_1km_2D:state_1km_1'
-        }
+    def _readBandsFromHdfs(self, 
+                           hdfFiles: list, 
+                           bands: list, 
+                           subDsPrefix: str,
+                           setXform: bool = False) -> dict:
 
         bandDict = {}
 
@@ -178,30 +126,70 @@ class BandReader(object):
 
             for band in bands:
 
-                subDataSet = 'HDF4_EOS:EOS_GRID:"' + \
-                             hdfFile + '":' + \
-                             FULL_BAND_NAMES[band]
+                subDataSet = subDsPrefix + ':"' + \
+                             str(hdfFile) + '":' + \
+                             self._getFullBandNames()[band]
 
                 ds = gdal.Open(subDataSet)
+                
+                if not ds:
+                    raise RuntimeError('Unable to open dataset.')
 
                 if setXform and not self._xform:
                     self._xform = ds.GetGeoTransform()
 
                 if setXform and not self._proj:
                     self._proj = ds.GetProjection()
-
+                    
                 bandDict[band] = ds.ReadAsArray(0, 0, None, None, None,
-                                                BandReader.COLS,
-                                                BandReader.ROWS)
-
+                                                self.getCols(),
+                                                self.getRows())
+                
         return bandDict
 
     # -------------------------------------------------------------------------
-    # validate
+    # sensors
     # -------------------------------------------------------------------------
-    def _validate(self, sensor, year, tile, day):
+    @staticmethod
+    @abstractmethod
+    def sensors() -> set:
+        pass
 
-        if sensor not in BandReader.SENSORS:
+    # -------------------------------------------------------------------------
+    # setBands
+    # -------------------------------------------------------------------------
+    def setBands(self, bands: list = ALL_BANDS) -> None:
+        
+        setOfBands = set(bands)
+        validatedBands = setOfBands.intersection(BandReader.ALL_BANDS)
+
+        if setOfBands != validatedBands:
+
+            if self._logger:
+                self._logger.warning('Some input bands are invalid.')
+        
+        # ---
+        # Bands must be expressed in base-class terms, and translated only
+        # in the derived classes as they do their work.
+        #
+        # self._bands = {self._getBandMap()[b] for b in validatedBands}
+        # ---
+        self._bands = validatedBands
+
+    # -------------------------------------------------------------------------
+    # setLogger
+    # -------------------------------------------------------------------------
+    def setLogger(self, logger: logging.RootLogger) -> None:
+        self._logger = logger
+        
+    # -------------------------------------------------------------------------
+    # validate
+    #
+    # TODO: validate day
+    # -------------------------------------------------------------------------
+    def _validate(self, sensor: str, year: int, day: int, tile: str):
+
+        if sensor not in self.sensors():
             raise RuntimeError('Invalid sensor, ' + sensor)
 
         # Validate tile.
